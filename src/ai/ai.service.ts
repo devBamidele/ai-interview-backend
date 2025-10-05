@@ -6,7 +6,6 @@ import {
   AIAnalysisResult,
 } from '../common/interfaces/ai.interface';
 import { LoggerService } from '../common/logger/logger.service';
-import { logError } from 'src/common/utils/error-logger.util';
 
 @Injectable()
 export class AIService {
@@ -33,38 +32,32 @@ export class AIService {
 
     const prompt = this.buildPrompt(sessionData);
 
-    try {
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are an expert interview coach analyzing practice interview sessions. Provide detailed, actionable feedback in JSON format.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.7,
-      });
+    const response = await this.openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an expert interview coach analyzing practice interview sessions. Provide detailed, actionable feedback in JSON format.',
+        },
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.7,
+    });
 
-      const content = response.choices[0].message.content;
-      if (!content) {
-        throw new Error('Empty response from OpenAI');
-      }
-
-      const analysis = JSON.parse(content) as AIAnalysisResult;
-
-      this.logger.log('AI analysis completed successfully');
-      return this.validateAndFormatAnalysis(analysis);
-    } catch (error: any) {
-      logError(this.logger, 'Failed to analyze interview with OpenAI:', error);
-
-      throw new InternalServerErrorException('AI analysis failed');
+    const content = response.choices[0].message.content;
+    if (!content) {
+      throw new InternalServerErrorException('Empty response from OpenAI');
     }
+
+    const analysis = JSON.parse(content) as AIAnalysisResult;
+
+    this.logger.log('AI analysis completed successfully');
+    return this.validateAndFormatAnalysis(analysis);
   }
 
   private buildPrompt(sessionData: SessionData): string {

@@ -5,6 +5,7 @@ import {
   IsArray,
   ValidateNested,
   IsOptional,
+  IsDefined,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -105,6 +106,7 @@ export class AnalyzeInterviewDto {
   @IsNotEmpty()
   participantIdentity: string;
 
+  @IsDefined()
   @ValidateNested()
   @Type(() => SessionDataDto)
   sessionData: SessionDataDto;

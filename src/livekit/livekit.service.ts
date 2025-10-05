@@ -4,7 +4,6 @@ import { AccessToken } from 'livekit-server-sdk';
 import { LivekitTokenResponse } from '../common/interfaces/livekit.interface';
 import { LoggerService } from '../common/logger/logger.service';
 import { CreateTokenDto } from 'src/common/dto';
-import { logError } from 'src/common/utils/error-logger.util';
 
 @Injectable()
 export class LivekitService {
@@ -42,23 +41,17 @@ export class LivekitService {
       `Creating token for room: ${roomName}, participant: ${participantName}`,
     );
 
-    try {
-      const at = new AccessToken(this.apiKey, this.apiSecret, {
-        identity: participantName,
-        ttl: '10m',
-      });
+    const at = new AccessToken(this.apiKey, this.apiSecret, {
+      identity: participantName,
+      ttl: '10m',
+    });
 
-      at.addGrant({ roomJoin: true, room: roomName });
-      const token = await at.toJwt();
+    at.addGrant({ roomJoin: true, room: roomName });
+    const token = await at.toJwt();
 
-      this.logger.log(
-        `Token created successfully for participant: ${participantName}`,
-      );
-      return { token, url: this.url };
-    } catch (error) {
-      logError(this.logger, `Failed to create token: `, error);
-
-      throw new InternalServerErrorException('Failed to create LiveKit token');
-    }
+    this.logger.log(
+      `Token created successfully for participant: ${participantName}`,
+    );
+    return { token, url: this.url };
   }
 }

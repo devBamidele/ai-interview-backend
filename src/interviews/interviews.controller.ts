@@ -8,7 +8,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { InterviewsService } from './interviews.service';
-import type { AnalyzeInterviewDto } from '../common/dto/interview.dto';
+import { AnalyzeInterviewDto } from '../common/dto/interview.dto';
 import {
   AnalyzeInterviewResponse,
   GetInterviewResponse,
