@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import {
   SessionData,
-  AIAnalysisResult,
+  MarketSizingAnalysisResult,
 } from '../common/interfaces/ai.interface';
 import { LoggerService } from '../common/logger/logger.service';
 
@@ -27,18 +27,23 @@ export class AIService {
     this.openai = new OpenAI({ apiKey });
   }
 
-  async analyzeInterview(sessionData: SessionData): Promise<AIAnalysisResult> {
-    this.logger.log('Starting AI analysis for interview session');
+  async analyzeMarketSizingInterview(
+    sessionData: SessionData,
+    caseQuestion: string,
+  ): Promise<MarketSizingAnalysisResult> {
+    this.logger.log(
+      `Starting MBB-aligned market sizing analysis for: ${caseQuestion}`,
+    );
 
-    const prompt = this.buildPrompt(sessionData);
+    const prompt = this.buildMarketSizingPrompt(sessionData, caseQuestion);
 
     const response = await this.openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5.2-chat-latest',
       messages: [
         {
           role: 'system',
           content:
-            'You are an expert interview coach analyzing practice interview sessions. Provide detailed, actionable feedback in JSON format.',
+            'You are an expert MBB (McKinsey, BCG, Bain) case interview evaluator specializing in market sizing questions. Evaluate based on ACTUAL MBB CRITERIA using a 5-point scale. Always return valid JSON.',
         },
         {
           role: 'user',
@@ -46,7 +51,7 @@ export class AIService {
         },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.7,
+      temperature: 0.3,
     });
 
     const content = response.choices[0].message.content;
@@ -54,84 +59,146 @@ export class AIService {
       throw new InternalServerErrorException('Empty response from OpenAI');
     }
 
-    const analysis = JSON.parse(content) as AIAnalysisResult;
+    const analysis = JSON.parse(content) as MarketSizingAnalysisResult;
 
-    this.logger.log('AI analysis completed successfully');
-    return this.validateAndFormatAnalysis(analysis);
+    this.logger.log('Market sizing analysis completed successfully');
+    return this.validateAndFormatMarketSizingAnalysis(analysis);
   }
 
-  private buildPrompt(sessionData: SessionData): string {
-    const paceTimelineStr = sessionData.paceTimeline
-      .map((p) => `${p.timestamp}s: ${p.wpm} WPM`)
-      .join('\n');
+  private buildMarketSizingPrompt(
+    sessionData: SessionData,
+    caseQuestion: string,
+  ): string {
+    return `You are an expert MBB (McKinsey, BCG, Bain) case interview evaluator specializing in market sizing questions.
 
-    const fillersStr = sessionData.fillers
-      .slice(0, 10)
-      .map(
-        (f) =>
-          `"${f.contextBefore} [${f.word}] ${f.contextAfter}" at ${f.timestamp}s`,
-      )
-      .join('\n');
+Evaluate this candidate's market sizing performance based on ACTUAL MBB CRITERIA using a 5-point scale:
+1 = Insufficient, 2 = Adequate, 3 = Good, 4 = Very Good, 5 = Outstanding
 
-    const pausesStr = sessionData.pauses
-      .map((p) => `${p.duration}s pause at ${p.timestamp}s`)
-      .join('\n');
+CASE QUESTION: "${caseQuestion}"
 
-    return `You are an expert interview coach analyzing a practice interview session.
-
-INTERVIEW TRANSCRIPT:
+FULL TRANSCRIPT:
 ${sessionData.transcript}
 
 SPEECH METRICS:
-- Duration: ${sessionData.duration}s
-- Total Words: ${sessionData.totalWords}
-- Average Pace: ${sessionData.averagePace} WPM
+- Average pace: ${sessionData.averagePace} WPM
+- Filler words: ${sessionData.fillers.length}
+- Long pauses: ${sessionData.pauses.length}
+- Duration: ${Math.round(sessionData.duration / 60)} minutes
 
-PACE TIMELINE (30-second segments):
-${paceTimelineStr}
+---
 
-FILLER WORDS (${sessionData.fillers.length} total):
-${fillersStr}
+EVALUATION CRITERIA (from actual MBB rubrics):
 
-PAUSES > 1.2s (${sessionData.pauses.length} total):
-${pausesStr}
+1. STRUCTURED PROBLEM-SOLVING (30% weight):
+   - Did candidate ask clarifying questions upfront? (highest failure point)
+   - Was a clear framework articulated? ("I'll use top-down approach...")
+   - Is segmentation MECE (mutually exclusive, collectively exhaustive)?
+   - Was structure communicated within first 1-2 minutes?
 
-Provide a comprehensive analysis with:
-1. Overall Performance Score (1-10)
-2. Pace Analysis (highlight inconsistencies, stress indicators)
-3. Filler Word Patterns (identify triggers and when they occur)
-4. Confidence Assessment (1-10)
-5. Top 3 Specific Improvements (with timestamps)
-6. Positive Highlights (2-3 items)
+2. BUSINESS JUDGMENT & ASSUMPTIONS (25% weight):
+   - Are assumptions explicitly stated in transcript?
+   - Are assumptions JUSTIFIED with reasoning? ("I assume X because Y...")
+   - Are estimates realistic and commercially sound?
+   - Quality over quantity of assumptions
 
-Format your response as JSON with this exact structure:
+3. QUANTITATIVE SKILLS (20% weight):
+   - Are calculations shown step-by-step in transcript?
+   - Are calculations VERBALIZED (not silent periods during math)?
+   - Is the arithmetic accurate?
+   - Can you follow the mathematical logic?
+
+4. COMMUNICATION (15% weight):
+   - Clear, organized explanations?
+   - Appropriate pace (120-180 WPM ideal)?
+   - Minimal filler words (<15 for 10min)?
+   - No extended silences during calculations?
+
+5. SANITY CHECK (10% weight):
+   - Did candidate explicitly validate their answer?
+   - Was sanity check reasoning VERBALIZED? ("This is reasonable because...")
+   - Did they catch obviously wrong results?
+
+---
+
+CRITICAL GUIDANCE:
+- Process > Precision: You are NOT scoring answer accuracy. Score the THINKING PROCESS.
+- Verbalization is key: Students must articulate their thinking OUT LOUD.
+- Look for explicit statements in transcript, not implicit thinking.
+- Most students fail on: clarifying questions, verbalizing calculations, justifying assumptions.
+- Do NOT reward memorized frameworks - reward logical thinking.
+
+RETURN VALID JSON with this EXACT structure:
 {
-  "overallScore": number,
-  "summary": string,
-  "paceAnalysis": string,
-  "fillerAnalysis": string,
-  "confidenceScore": number,
-  "improvements": [
-    {
-      "title": string,
-      "timestamp": number,
-      "description": string
-    }
+  "structuredProblemSolving": {
+    "score": <1-5>,
+    "feedback": "<specific feedback with examples from transcript>",
+    "frameworkDetected": "<top-down|bottom-up|hybrid|none>",
+    "meceApplied": <true|false>,
+    "clarifyingQuestionsAsked": <true|false>
+  },
+  "businessJudgment": {
+    "score": <1-5>,
+    "feedback": "<specific feedback>",
+    "assumptionsStated": <true|false>,
+    "assumptionsJustified": <true|false>,
+    "assumptionQuality": "<quote 2-3 assumption examples from transcript>"
+  },
+  "quantitativeSkills": {
+    "score": <1-5>,
+    "feedback": "<specific feedback>",
+    "mathShownStepByStep": <true|false>,
+    "mathVerbalized": <true|false>,
+    "calculationsAccurate": <true|false>
+  },
+  "communication": {
+    "score": <1-5>,
+    "feedback": "<reference pace, fillers, clarity>"
+  },
+  "sanityCheck": {
+    "score": <1-5>,
+    "feedback": "<specific feedback>",
+    "sanityCheckPerformed": <true|false>,
+    "sanityCheckVerbalized": <true|false>
+  },
+  "overallWeightedScore": <calculated: score1*0.3 + score2*0.25 + score3*0.2 + score4*0.15 + score5*0.1>,
+  "overallLabel": "<Insufficient|Adequate|Good|Very Good|Outstanding>",
+  "priorityImprovements": [
+    {"timestamp": "MM:SS", "feedback": "<actionable improvement>"},
+    {"timestamp": "MM:SS", "feedback": "<actionable improvement>"},
+    {"timestamp": "MM:SS", "feedback": "<actionable improvement>"}
   ],
-  "highlights": [string]
+  "highlights": [
+    "<positive aspect 1>",
+    "<positive aspect 2>"
+  ]
 }`;
   }
 
-  private validateAndFormatAnalysis(
-    analysis: AIAnalysisResult,
-  ): AIAnalysisResult {
+  private validateAndFormatMarketSizingAnalysis(
+    analysis: MarketSizingAnalysisResult,
+  ): MarketSizingAnalysisResult {
+    // Calculate weighted score if not provided or incorrect
+    const calculatedScore =
+      (analysis.structuredProblemSolving?.score || 0) * 0.3 +
+      (analysis.businessJudgment?.score || 0) * 0.25 +
+      (analysis.quantitativeSkills?.score || 0) * 0.2 +
+      (analysis.communication?.score || 0) * 0.15 +
+      (analysis.sanityCheck?.score || 0) * 0.1;
+
+    const roundedScore = Math.round(calculatedScore * 10) / 10;
+
+    // Map score to label
+    let label: MarketSizingAnalysisResult['overallLabel'] = 'Insufficient';
+    if (roundedScore >= 4.5) label = 'Outstanding';
+    else if (roundedScore >= 3.5) label = 'Very Good';
+    else if (roundedScore >= 2.5) label = 'Good';
+    else if (roundedScore >= 1.5) label = 'Adequate';
+
     return {
-      overallScore: analysis.overallScore || 0,
-      summary: analysis.summary || '',
-      paceAnalysis: analysis.paceAnalysis || '',
-      fillerAnalysis: analysis.fillerAnalysis || '',
-      confidenceScore: analysis.confidenceScore || 0,
-      improvements: analysis.improvements || [],
+      ...analysis,
+      overallWeightedScore: roundedScore,
+      overallLabel: label,
+      priorityImprovements: analysis.priorityImprovements || [],
       highlights: analysis.highlights || [],
     };
   }

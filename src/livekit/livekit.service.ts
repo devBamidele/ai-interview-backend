@@ -1,15 +1,17 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AccessToken } from 'livekit-server-sdk';
+import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
 import { LivekitTokenResponse } from '../common/interfaces/livekit.interface';
 import { LoggerService } from '../common/logger/logger.service';
-import { CreateTokenDto } from 'src/common/dto';
+import { CreateTokenDto } from '../common/dto';
 
 @Injectable()
 export class LivekitService {
   private readonly apiKey: string;
   private readonly apiSecret: string;
   private readonly url: string;
+  private readonly roomClient: RoomServiceClient;
+  private readonly sessionTimers: Map<string, NodeJS.Timeout>;
 
   constructor(
     private readonly configService: ConfigService,
@@ -30,6 +32,8 @@ export class LivekitService {
     this.apiKey = apiKey;
     this.apiSecret = apiSecret;
     this.url = url;
+    this.roomClient = new RoomServiceClient(url, apiKey, apiSecret);
+    this.sessionTimers = new Map<string, NodeJS.Timeout>();
   }
 
   async createToken(
@@ -49,9 +53,74 @@ export class LivekitService {
     at.addGrant({ roomJoin: true, room: roomName });
     const token = await at.toJwt();
 
+    // Start 10-minute session timer for market sizing interview
+    this.startSessionTimer(roomName, 600000); // 10 minutes
+
     this.logger.log(
       `Token created successfully for participant: ${participantName}`,
     );
     return { token, url: this.url };
+  }
+
+  /**
+   * Delete a LiveKit room and disconnect all participants
+   * @param roomName The name of the room to delete
+   */
+  async deleteRoom(roomName: string): Promise<void> {
+    try {
+      await this.roomClient.deleteRoom(roomName);
+      this.logger.log(`Room deleted successfully: ${roomName}`);
+
+      // Clear any existing timer for this room
+      this.clearSessionTimer(roomName);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      this.logger.error(`Failed to delete room: ${roomName}`, errorMessage);
+      throw new InternalServerErrorException(
+        `Failed to delete room: ${errorMessage}`,
+      );
+    }
+  }
+
+  /**
+   * Start a session timer that automatically deletes the room after specified duration
+   * @param roomName The name of the room
+   * @param durationMs Duration in milliseconds (default: 10 minutes)
+   */
+  startSessionTimer(roomName: string, durationMs: number = 600000): void {
+    // Clear any existing timer for this room
+    this.clearSessionTimer(roomName);
+
+    this.logger.log(
+      `Starting session timer for room: ${roomName} (${durationMs / 1000}s)`,
+    );
+
+    const timeout = setTimeout(() => {
+      this.logger.log(
+        `Session timeout reached for room: ${roomName}. Deleting room...`,
+      );
+      this.deleteRoom(roomName).catch((error) => {
+        this.logger.error(
+          `Failed to delete room on timeout: ${roomName}`,
+          JSON.stringify(error),
+        );
+      });
+    }, durationMs);
+
+    this.sessionTimers.set(roomName, timeout);
+  }
+
+  /**
+   * Clear the session timer for a specific room
+   * @param roomName The name of the room
+   */
+  clearSessionTimer(roomName: string): void {
+    const existingTimer = this.sessionTimers.get(roomName);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      this.sessionTimers.delete(roomName);
+      this.logger.log(`Cleared session timer for room: ${roomName}`);
+    }
   }
 }

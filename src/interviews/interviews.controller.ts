@@ -12,6 +12,7 @@ import { AnalyzeInterviewDto } from '../common/dto/interview.dto';
 import {
   AnalyzeInterviewResponse,
   GetInterviewResponse,
+  GetUserInterviewsResponse,
 } from '../common/interfaces/interview.interface';
 
 @Controller('interviews')
@@ -24,6 +25,13 @@ export class InterviewsController {
     @Body() dto: AnalyzeInterviewDto,
   ): Promise<AnalyzeInterviewResponse> {
     return await this.interviewsService.analyzeInterview(dto);
+  }
+
+  @Get('user/:participantIdentity')
+  async getUserInterviews(
+    @Param('participantIdentity') participantIdentity: string,
+  ): Promise<GetUserInterviewsResponse> {
+    return await this.interviewsService.getUserInterviews(participantIdentity);
   }
 
   @Get(':interviewId')

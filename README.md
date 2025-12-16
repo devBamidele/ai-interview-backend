@@ -1,98 +1,116 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# AI Interview Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+An AI-powered interview coaching platform backend built with NestJS. This backend processes real-time interview sessions, analyzes speech patterns, and provides AI-driven feedback using OpenAI GPT. Currently focused on market sizing case interview preparation for consulting students.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Overview
 
-## Description
+This platform conducts live interview sessions with users via LiveKit voice agents, transcribes and analyzes speech in real-time, and provides detailed performance feedback based on actual MBB (McKinsey, BCG, Bain) evaluation criteria.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Key Features
 
-## Project setup
+- **Real-time Interview Sessions**: Integration with LiveKit for live audio streaming and AI interviewer
+- **Speech Analysis**: Tracks pace (WPM), filler words, pauses, and confidence metrics
+- **AI-Powered Feedback**: Uses OpenAI GPT to analyze interview performance and provide detailed coaching
+- **Market Sizing Specialization**: Evaluates structured thinking, assumption quality, quantitative skills, communication, and sanity checks
+- **Async Processing**: Background AI analysis to prevent blocking HTTP requests
+- **MongoDB Storage**: Persistent storage of interviews, transcripts, and analysis results
 
-```bash
-$ npm install
+## Tech Stack
+
+- **NestJS 11.0.1**: Backend framework
+- **TypeScript 5.7.3**: Type-safe development
+- **MongoDB 8.19.0** + **Mongoose 8.19.0**: Database and ODM
+- **LiveKit SDK**: Real-time audio communication and token generation
+- **OpenAI SDK 6.1.0**: AI analysis integration
+- **Deepgram SDK 4.11.2**: Speech-to-text transcription
+- **class-validator** & **class-transformer**: Input validation
+
+## Architecture
+
+```
+AppModule
+├── ConfigModule (Environment configuration)
+├── MongooseModule (Database connection)
+├── LoggerModule (Custom logging)
+├── LivekitModule (Token generation for rooms)
+├── InterviewsModule (Interview CRUD & AI processing)
+└── AIModule (OpenAI integration)
 ```
 
-## Compile and run the project
+## API Endpoints
 
-```bash
-# development
-$ npm run start
+### LiveKit
+- `POST /api/livekit/token` - Generate access token for LiveKit room
+  - Body: `{ roomName, participantName }`
 
-# watch mode
-$ npm run start:dev
+### Interviews
+- `POST /api/interviews/analyze` - Submit interview for AI analysis
+  - Body: `{ roomName, participantIdentity, sessionData }`
+- `GET /api/interviews/:interviewId` - Get interview results
+- `GET /api/interviews/user/:participantIdentity` - Get user's interview history
 
-# production mode
-$ npm run start:prod
+## Environment Variables
+
+Create a `.env` file with:
+
+```env
+MONGODB_URI=mongodb://localhost:27017/ai-interview
+OPENAI_API_KEY=your_openai_api_key
+LIVEKIT_API_KEY=your_livekit_api_key
+LIVEKIT_API_SECRET=your_livekit_api_secret
+LIVEKIT_URL=wss://your-livekit-url
+PORT=3000
 ```
 
-## Run tests
+## Installation
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm install
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Running the Application
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Development
+npm run start:dev
+
+# Production
+npm run build
+npm run start:prod
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Testing
 
-## Resources
+```bash
+# Unit tests
+npm run test
 
-Check out a few resources that may come in handy when working with NestJS:
+# E2E tests
+npm run test:e2e
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Test coverage
+npm run test:cov
+```
 
-## Support
+## AI Analysis Output
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+The backend analyzes interviews across 5 MBB-aligned dimensions:
 
-## Stay in touch
+1. **Structured Problem-Solving** (30%): Framework articulation, MECE segmentation
+2. **Business Judgment & Assumptions** (25%): Realistic assumptions with justification
+3. **Quantitative Skills** (20%): Math accuracy, step-by-step calculations
+4. **Communication** (15%): Pace, clarity, minimal fillers
+5. **Sanity Check** (10%): Answer validation and reality checks
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+Each dimension is scored 1-5 (Insufficient → Outstanding) with weighted overall score.
+
+## Related Services
+
+This backend works with:
+- **Voice Agent**: LiveKit voice agent for conducting interviews ([livekit-voice-agent](../Documents/livekit-voice-agent))
+- **Transcription Service**: Node.js service for real-time speech-to-text ([transcription-service](../transcription-service))
+- **Mobile Frontend**: Flutter app for user interface ([ai_interview_mvp](../../../AndroidStudioProjects/ai_interview_mvp))
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+UNLICENSED

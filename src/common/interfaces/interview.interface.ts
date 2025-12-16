@@ -20,6 +20,14 @@ export interface GetInterviewResponse {
   transcript: string;
   recordingUrl?: string;
   metrics: InterviewMetrics;
-  aiAnalysis?: any;
+  caseQuestion: string;
+  difficulty: string;
+  candidateAnswer?: string;
+  caseAnalysis?: any;
   status: string;
+}
+
+export interface GetUserInterviewsResponse {
+  interviews: GetInterviewResponse[];
+  total: number;
 }

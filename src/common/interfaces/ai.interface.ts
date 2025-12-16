@@ -23,16 +23,49 @@ export interface SessionData {
   transcriptSegments?: any[];
 }
 
-export interface AIAnalysisResult {
-  overallScore: number;
-  summary: string;
-  paceAnalysis: string;
-  fillerAnalysis: string;
-  confidenceScore: number;
-  improvements: Array<{
-    title: string;
-    timestamp: number;
-    description: string;
+// Market Sizing Analysis Result - MBB-Aligned
+export interface MarketSizingAnalysisResult {
+  structuredProblemSolving: {
+    score: number;
+    feedback: string;
+    frameworkDetected: 'top-down' | 'bottom-up' | 'hybrid' | 'none';
+    meceApplied: boolean;
+    clarifyingQuestionsAsked: boolean;
+  };
+  businessJudgment: {
+    score: number;
+    feedback: string;
+    assumptionsStated: boolean;
+    assumptionsJustified: boolean;
+    assumptionQuality: string;
+  };
+  quantitativeSkills: {
+    score: number;
+    feedback: string;
+    mathShownStepByStep: boolean;
+    mathVerbalized: boolean;
+    calculationsAccurate: boolean;
+  };
+  communication: {
+    score: number;
+    feedback: string;
+  };
+  sanityCheck: {
+    score: number;
+    feedback: string;
+    sanityCheckPerformed: boolean;
+    sanityCheckVerbalized: boolean;
+  };
+  overallWeightedScore: number;
+  overallLabel:
+    | 'Insufficient'
+    | 'Adequate'
+    | 'Good'
+    | 'Very Good'
+    | 'Outstanding';
+  priorityImprovements: Array<{
+    timestamp: string;
+    feedback: string;
   }>;
   highlights: string[];
 }

@@ -6,6 +6,7 @@ import {
   ValidateNested,
   IsOptional,
   IsDefined,
+  IsEnum,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -110,4 +111,17 @@ export class AnalyzeInterviewDto {
   @ValidateNested()
   @Type(() => SessionDataDto)
   sessionData: SessionDataDto;
+
+  // Market Sizing Case-Specific Fields
+  @IsString()
+  @IsNotEmpty()
+  caseQuestion: string;
+
+  @IsEnum(['easy', 'medium', 'hard'])
+  @IsNotEmpty()
+  difficulty: 'easy' | 'medium' | 'hard';
+
+  @IsString()
+  @IsOptional()
+  candidateAnswer?: string;
 }
