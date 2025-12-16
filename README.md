@@ -1,19 +1,21 @@
 # AI Interview Backend
 
-An AI-powered interview coaching platform backend built with NestJS. This backend processes real-time interview sessions, analyzes speech patterns, and provides AI-driven feedback using OpenAI GPT. Currently focused on market sizing case interview preparation for consulting students.
+An AI-powered case interview coaching platform backend built with NestJS. This backend processes market sizing case interviews, analyzes speech patterns and problem-solving approach, and provides AI-driven feedback using OpenAI GPT based on MBB (McKinsey, BCG, Bain) evaluation criteria.
 
 ## Overview
 
-This platform conducts live interview sessions with users via LiveKit voice agents, transcribes and analyzes speech in real-time, and provides detailed performance feedback based on actual MBB (McKinsey, BCG, Bain) evaluation criteria.
+This platform receives interview session data from LiveKit-based voice interviews, processes transcripts and speech analytics, and evaluates market sizing case performance across five key dimensions used by top consulting firms. The system stores case questions with model answers and provides detailed, actionable feedback to help consulting candidates improve their interview skills.
 
 ## Key Features
 
-- **Real-time Interview Sessions**: Integration with LiveKit for live audio streaming and AI interviewer
-- **Speech Analysis**: Tracks pace (WPM), filler words, pauses, and confidence metrics
-- **AI-Powered Feedback**: Uses OpenAI GPT to analyze interview performance and provide detailed coaching
-- **Market Sizing Specialization**: Evaluates structured thinking, assumption quality, quantitative skills, communication, and sanity checks
+- **LiveKit Integration**: Generates tokens and manages LiveKit room access for voice-based interviews
+- **Speech Analytics Processing**: Processes detailed speech metrics including pace (WPM), filler words, pauses, and word-level confidence scores
+- **AI-Powered Evaluation**: Uses OpenAI GPT to analyze market sizing case performance and provide detailed coaching feedback
+- **MBB-Aligned Assessment**: Evaluates five key dimensions - structured thinking, business judgment, quantitative skills, communication, and sanity checks
+- **Case Question Management**: Database of market sizing questions with difficulty levels, model answer ranges, and expert approaches
 - **Async Processing**: Background AI analysis to prevent blocking HTTP requests
-- **MongoDB Storage**: Persistent storage of interviews, transcripts, and analysis results
+- **Interview History**: Stores complete interview records including transcripts, speech analytics, and AI evaluations
+- **User Progress Tracking**: Retrieves interview history by participant for tracking improvement over time
 
 ## Tech Stack
 
@@ -40,18 +42,37 @@ AppModule
 ## API Endpoints
 
 ### LiveKit
-- `POST /api/livekit/token` - Generate access token for LiveKit room
+- `POST /livekit/token` - Generate access token for LiveKit room
   - Body: `{ roomName, participantName }`
 
 ### Interviews
-- `POST /api/interviews/analyze` - Submit interview for AI analysis
-  - Body: `{ roomName, participantIdentity, sessionData }`
-- `GET /api/interviews/:interviewId` - Get interview results
-- `GET /api/interviews/user/:participantIdentity` - Get user's interview history
+- `POST /interviews/analyze` - Submit market sizing case interview for AI analysis
+  - Body:
+    ```json
+    {
+      "roomName": "string",
+      "participantIdentity": "string",
+      "caseQuestion": "string",
+      "difficulty": "easy" | "medium" | "hard",
+      "candidateAnswer": "string (optional)",
+      "sessionData": {
+        "transcript": "string",
+        "duration": "number",
+        "totalWords": "number",
+        "averagePace": "number",
+        "paceTimeline": [...],
+        "fillers": [...],
+        "pauses": [...],
+        "words": [...]
+      }
+    }
+    ```
+- `GET /interviews/:interviewId` - Get detailed interview results with AI evaluation
+- `GET /interviews/user/:participantIdentity` - Get user's complete interview history
 
 ## Environment Variables
 
-Create a `.env` file with:
+Create a `development.env` file with:
 
 ```env
 MONGODB_URI=mongodb://localhost:27017/ai-interview
@@ -66,6 +87,14 @@ PORT=3000
 
 ```bash
 npm install
+```
+
+## Database Setup
+
+Seed the database with market sizing case questions:
+
+```bash
+npm run seed:cases
 ```
 
 ## Running the Application
@@ -92,24 +121,33 @@ npm run test:e2e
 npm run test:cov
 ```
 
-## AI Analysis Output
+## AI Evaluation Framework
 
-The backend analyzes interviews across 5 MBB-aligned dimensions:
+The backend analyzes market sizing case interviews across 5 MBB-aligned dimensions:
 
-1. **Structured Problem-Solving** (30%): Framework articulation, MECE segmentation
-2. **Business Judgment & Assumptions** (25%): Realistic assumptions with justification
-3. **Quantitative Skills** (20%): Math accuracy, step-by-step calculations
-4. **Communication** (15%): Pace, clarity, minimal fillers
-5. **Sanity Check** (10%): Answer validation and reality checks
+1. **Structured Problem-Solving** (30%): Framework articulation, MECE segmentation, logical approach
+2. **Business Judgment & Assumptions** (25%): Realistic assumptions with clear justification
+3. **Quantitative Skills** (20%): Mathematical accuracy, step-by-step calculations, numerical reasoning
+4. **Communication** (15%): Speech pace, clarity, minimal filler words, confidence
+5. **Sanity Check** (10%): Answer validation, order of magnitude checks, reality testing
 
-Each dimension is scored 1-5 (Insufficient → Outstanding) with weighted overall score.
+Each dimension receives:
+- Score: 1-5 (Insufficient → Outstanding)
+- Strengths: What the candidate did well
+- Areas for Improvement: Specific feedback on weaknesses
+- Actionable Recommendations: Concrete steps to improve
 
-## Related Services
+The system calculates a weighted overall score and provides comprehensive feedback to help candidates improve their consulting interview performance.
 
-This backend works with:
-- **Voice Agent**: LiveKit voice agent for conducting interviews ([livekit-voice-agent](../Documents/livekit-voice-agent))
-- **Transcription Service**: Node.js service for real-time speech-to-text ([transcription-service](../transcription-service))
-- **Mobile Frontend**: Flutter app for user interface ([ai_interview_mvp](../../../AndroidStudioProjects/ai_interview_mvp))
+## System Architecture
+
+This backend is part of a larger interview coaching system:
+- **Backend (This Service)**: NestJS API for processing interviews, AI evaluation, and data storage
+- **Voice Agent**: LiveKit-based AI interviewer that conducts market sizing case interviews
+- **Transcription Service**: Real-time speech-to-text processing with Deepgram
+- **Frontend**: Client application for users to practice interviews and view feedback
+
+The backend receives session data from the voice agent, processes it asynchronously, and stores complete evaluation results including transcript, speech analytics, and AI-generated feedback.
 
 ## License
 
