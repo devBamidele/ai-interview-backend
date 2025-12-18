@@ -7,6 +7,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { InterviewsService } from './interviews.service';
 import { AnalyzeInterviewDto } from '../common/dto/interview.dto';
 import {
@@ -15,12 +16,15 @@ import {
   GetUserInterviewsResponse,
 } from '../common/interfaces/interview.interface';
 
+@ApiTags('interviews')
 @Controller('interviews')
 export class InterviewsController {
   constructor(private readonly interviewsService: InterviewsService) {}
 
   @Post('analyze')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Analyze market sizing interview' })
+  @ApiResponse({ status: 200, type: AnalyzeInterviewResponse })
   async analyzeInterview(
     @Body() dto: AnalyzeInterviewDto,
   ): Promise<AnalyzeInterviewResponse> {
@@ -28,6 +32,8 @@ export class InterviewsController {
   }
 
   @Get('user/:participantIdentity')
+  @ApiOperation({ summary: 'Get all interviews for a user' })
+  @ApiResponse({ status: 200, type: GetUserInterviewsResponse })
   async getUserInterviews(
     @Param('participantIdentity') participantIdentity: string,
   ): Promise<GetUserInterviewsResponse> {
@@ -35,6 +41,9 @@ export class InterviewsController {
   }
 
   @Get(':interviewId')
+  @ApiOperation({ summary: 'Get single interview by ID' })
+  @ApiResponse({ status: 200, type: GetInterviewResponse })
+  @ApiResponse({ status: 404, description: 'Interview not found' })
   async getInterview(
     @Param('interviewId') interviewId: string,
   ): Promise<GetInterviewResponse> {

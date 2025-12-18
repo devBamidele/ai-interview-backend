@@ -47,14 +47,14 @@ export class LivekitService {
 
     const at = new AccessToken(this.apiKey, this.apiSecret, {
       identity: participantName,
-      ttl: '10m',
+      ttl: '5m',
     });
 
     at.addGrant({ roomJoin: true, room: roomName });
     const token = await at.toJwt();
 
-    // Start 10-minute session timer for market sizing interview
-    this.startSessionTimer(roomName, 600000); // 10 minutes
+    // Start 5-minute session timer for market sizing interview
+    this.startSessionTimer(roomName, 300000); // 5 minutes
 
     this.logger.log(
       `Token created successfully for participant: ${participantName}`,
@@ -86,9 +86,9 @@ export class LivekitService {
   /**
    * Start a session timer that automatically deletes the room after specified duration
    * @param roomName The name of the room
-   * @param durationMs Duration in milliseconds (default: 10 minutes)
+   * @param durationMs Duration in milliseconds (default: 5 minutes)
    */
-  startSessionTimer(roomName: string, durationMs: number = 600000): void {
+  startSessionTimer(roomName: string, durationMs: number = 300000): void {
     // Clear any existing timer for this room
     this.clearSessionTimer(roomName);
 

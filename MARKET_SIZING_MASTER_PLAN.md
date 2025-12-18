@@ -291,7 +291,7 @@ MBB firms use a **5-point scale**, not 10-point:
   - If no framework stated: "What approach are you taking?"
   - If overly complex: "Can you simplify that?"
   - Before ending: "Does that answer make sense?" (force sanity check)
-- **Track time** (10-minute limit per case, give warning at 2 min remaining)
+- **Track time** (5-minute limit per case, give warning at 1 min remaining)
 - **Guide without giving answers** - use Socratic probing
 - **End the interview** when candidate completes or time expires
 
@@ -435,7 +435,7 @@ MBB firms use a **5-point scale**, not 10-point:
 
   Case: "How many pizzas are consumed in NYC per year?"
 
-  Time: 08:32
+  Time: 04:12
 
   [Live transcript scrolling...]
 
@@ -558,15 +558,15 @@ MBB firms use a **5-point scale**, not 10-point:
    - [ ] Prompt for sanity check before ending
 
 4. **Time Management**
-   - [ ] Track 10-minute limit
-   - [ ] Give time warnings ("5 minutes left")
-   - [ ] Hard stop at 10 minutes
+   - [ ] Track 5-minute limit
+   - [ ] Give time warnings ("2 minutes left")
+   - [ ] Hard stop at 5 minutes
 
 #### Acceptance Criteria:
 - Agent asks market sizing questions
 - Agent probes for structure and assumptions
 - Agent maintains realistic interviewer pressure
-- Sessions limited to 10 minutes
+- Sessions limited to 5 minutes
 
 ---
 
