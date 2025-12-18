@@ -15,6 +15,7 @@ import {
   GetInterviewResponse,
   GetUserInterviewsResponse,
 } from '../common/interfaces/interview.interface';
+import { Public } from '../auth/decorators/public.decorator';
 
 @ApiTags('interviews')
 @Controller('interviews')
@@ -22,6 +23,7 @@ export class InterviewsController {
   constructor(private readonly interviewsService: InterviewsService) {}
 
   @Post('analyze')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Analyze market sizing interview' })
   @ApiResponse({ status: 200, type: AnalyzeInterviewResponse })
@@ -32,6 +34,7 @@ export class InterviewsController {
   }
 
   @Get('user/:participantIdentity')
+  @Public()
   @ApiOperation({ summary: 'Get all interviews for a user' })
   @ApiResponse({ status: 200, type: GetUserInterviewsResponse })
   async getUserInterviews(
@@ -41,6 +44,7 @@ export class InterviewsController {
   }
 
   @Get(':interviewId')
+  @Public()
   @ApiOperation({ summary: 'Get single interview by ID' })
   @ApiResponse({ status: 200, type: GetInterviewResponse })
   @ApiResponse({ status: 404, description: 'Interview not found' })

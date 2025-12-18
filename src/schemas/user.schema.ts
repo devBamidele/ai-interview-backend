@@ -3,6 +3,11 @@ import { Document } from 'mongoose';
 
 export type UserDoc = User & Document;
 
+export enum UserType {
+  AUTHENTICATED = 'authenticated',
+  ANONYMOUS = 'anonymous',
+}
+
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true, unique: true })
@@ -11,8 +16,29 @@ export class User {
   @Prop({ required: true })
   name: string;
 
+  @Prop({ select: false })
+  password?: string;
+
   @Prop()
   participantIdentity?: string;
+
+  @Prop({ type: String, enum: UserType, default: UserType.ANONYMOUS })
+  userType: UserType;
+
+  @Prop({ default: true })
+  isActive: boolean;
+
+  @Prop()
+  lastLoginAt?: Date;
+
+  @Prop()
+  upgradedAt?: Date;
+
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+UserSchema.index({ participantIdentity: 1 });
+UserSchema.index({ email: 1, userType: 1 });

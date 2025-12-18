@@ -42,9 +42,21 @@ async function bootstrap() {
       'REST API for AI-powered case interview analysis with real-time transcription and MBB-aligned evaluation',
     )
     .setVersion('1.0')
+    .addTag('auth', 'Authentication endpoints (signup, login, refresh tokens)')
     .addTag('interviews', 'Market sizing interview analysis endpoints')
     .addTag('livekit', 'LiveKit room and token management')
     .addTag('health', 'Health check endpoints')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Enter JWT access token',
+        in: 'header',
+      },
+      'JWT-auth',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
