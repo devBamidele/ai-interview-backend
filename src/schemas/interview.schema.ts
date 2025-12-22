@@ -249,7 +249,11 @@ export class Interview {
   @Prop()
   processedAt?: Date;
 
+  @Prop({ required: true, unique: true })
+  accessToken: string;
+
   createdAt: Date;
 }
 
 export const InterviewSchema = SchemaFactory.createForClass(Interview);
+InterviewSchema.index({ accessToken: 1 });

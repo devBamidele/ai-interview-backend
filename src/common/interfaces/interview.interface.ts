@@ -9,6 +9,9 @@ export class AnalyzeInterviewResponse {
 
   @ApiProperty()
   message: string;
+
+  @ApiProperty({ description: 'Access token for fetching this interview' })
+  accessToken: string;
 }
 
 export class InterviewMetrics {
@@ -69,6 +72,49 @@ export class GetInterviewResponse {
 export class GetUserInterviewsResponse {
   @ApiProperty({ type: [GetInterviewResponse] })
   interviews: GetInterviewResponse[];
+
+  @ApiProperty()
+  total: number;
+}
+
+export class InterviewSummary {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty({ enum: ['processing', 'completed', 'failed'] })
+  status: string;
+
+  @ApiProperty()
+  createdAt: Date;
+
+  @ApiProperty()
+  duration: number;
+
+  @ApiProperty()
+  caseQuestion: string;
+
+  @ApiProperty({ enum: ['easy', 'medium', 'hard'] })
+  difficulty: string;
+
+  @ApiProperty({ required: false })
+  candidateAnswer?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Overall weighted score from case analysis',
+  })
+  overallWeightedScore?: number;
+
+  @ApiProperty({
+    required: false,
+    description: 'Overall performance label from case analysis',
+  })
+  overallLabel?: string;
+}
+
+export class GetUserInterviewsSummaryResponse {
+  @ApiProperty({ type: [InterviewSummary] })
+  interviews: InterviewSummary[];
 
   @ApiProperty()
   total: number;

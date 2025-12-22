@@ -10,10 +10,13 @@ import {
   AnalyzeInterviewResponse,
   GetInterviewResponse,
   GetUserInterviewsResponse,
+  GetUserInterviewsSummaryResponse,
+  InterviewSummary,
 } from '../common/interfaces/interview.interface';
 import { AnalyzeInterviewDto } from 'src/common/dto';
 import { logError } from 'src/common/utils/error-logger.util';
 import { SessionData } from 'src/common/interfaces';
+import { generateAccessToken } from '../common/utils/token.util';
 
 @Injectable()
 export class InterviewsService {
@@ -48,6 +51,9 @@ export class InterviewsService {
       });
     }
 
+    // Generate unique access token for this interview
+    const accessToken = generateAccessToken();
+
     // Create interview record with processing status - Market Sizing
     const interview = await this.interviewModel.create({
       userId: user._id,
@@ -66,6 +72,7 @@ export class InterviewsService {
       difficulty: dto.difficulty,
       candidateAnswer: dto.candidateAnswer,
       status: 'processing',
+      accessToken,
     });
 
     const interviewId = (interview._id as Types.ObjectId).toString();
@@ -85,6 +92,7 @@ export class InterviewsService {
       interviewId,
       status: 'processing',
       message: 'Interview saved. AI analysis in progress...',
+      accessToken,
     };
   }
 
@@ -134,16 +142,18 @@ export class InterviewsService {
     }
   }
 
-  async getInterview(interviewId: string): Promise<GetInterviewResponse> {
-    this.logger.log(`Fetching interview with ID: ${interviewId}`);
+  async getInterviewByToken(
+    accessToken: string,
+  ): Promise<GetInterviewResponse> {
+    this.logger.log(`Fetching interview with access token`);
 
     const interview = await this.interviewModel
-      .findById(interviewId)
+      .findOne({ accessToken })
       .populate('userId', 'email name')
       .exec();
 
     if (!interview) {
-      throw new NotFoundException(`Interview with ID ${interviewId} not found`);
+      throw new NotFoundException(`Interview not found`);
     }
 
     const id = (interview._id as Types.ObjectId).toString();
@@ -170,15 +180,24 @@ export class InterviewsService {
     };
   }
 
-  async getUserInterviews(
-    participantIdentity: string,
+  async getUserInterviewsByToken(
+    accessToken: string,
   ): Promise<GetUserInterviewsResponse> {
-    this.logger.log(
-      `Fetching all interviews for participant: ${participantIdentity}`,
-    );
+    this.logger.log(`Fetching all interviews for user via access token`);
 
+    // First, find the interview with this token to get participantIdentity
+    const tokenInterview = await this.interviewModel
+      .findOne({ accessToken })
+      .select('participantIdentity')
+      .exec();
+
+    if (!tokenInterview) {
+      throw new NotFoundException('Invalid access token');
+    }
+
+    // Get all interviews for this participant
     const interviews = await this.interviewModel
-      .find({ participantIdentity })
+      .find({ participantIdentity: tokenInterview.participantIdentity })
       .populate('userId', 'email name')
       .sort({ createdAt: -1 })
       .exec();
@@ -209,6 +228,50 @@ export class InterviewsService {
     return {
       interviews: formattedInterviews,
       total: formattedInterviews.length,
+    };
+  }
+
+  async getUserInterviewsSummaryByToken(
+    accessToken: string,
+  ): Promise<GetUserInterviewsSummaryResponse> {
+    this.logger.log(
+      `Fetching interview summaries for user via access token (optimized)`,
+    );
+
+    // First, find the interview with this token to get participantIdentity
+    const tokenInterview = await this.interviewModel
+      .findOne({ accessToken })
+      .select('participantIdentity')
+      .exec();
+
+    if (!tokenInterview) {
+      throw new NotFoundException('Invalid access token');
+    }
+
+    // Get all interviews for this participant - OPTIMIZED: Only select essential fields
+    const interviews = await this.interviewModel
+      .find({ participantIdentity: tokenInterview.participantIdentity })
+      .select(
+        '_id status createdAt duration caseQuestion difficulty candidateAnswer caseAnalysis.overallWeightedScore caseAnalysis.overallLabel',
+      )
+      .sort({ createdAt: -1 })
+      .exec();
+
+    const summaries: InterviewSummary[] = interviews.map((interview) => ({
+      id: (interview._id as Types.ObjectId).toString(),
+      status: interview.status,
+      createdAt: interview.createdAt,
+      duration: interview.duration,
+      caseQuestion: interview.caseQuestion,
+      difficulty: interview.difficulty,
+      candidateAnswer: interview.candidateAnswer,
+      overallWeightedScore: interview.caseAnalysis?.overallWeightedScore,
+      overallLabel: interview.caseAnalysis?.overallLabel,
+    }));
+
+    return {
+      interviews: summaries,
+      total: summaries.length,
     };
   }
 }
