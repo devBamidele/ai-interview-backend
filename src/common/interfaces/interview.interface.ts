@@ -69,14 +69,6 @@ export class GetInterviewResponse {
   status: string;
 }
 
-export class GetUserInterviewsResponse {
-  @ApiProperty({ type: [GetInterviewResponse] })
-  interviews: GetInterviewResponse[];
-
-  @ApiProperty()
-  total: number;
-}
-
 export class InterviewSummary {
   @ApiProperty()
   id: string;

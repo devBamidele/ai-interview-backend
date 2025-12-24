@@ -9,7 +9,6 @@ import { LoggerService } from '../common/logger/logger.service';
 import {
   AnalyzeInterviewResponse,
   GetInterviewResponse,
-  GetUserInterviewsResponse,
   GetUserInterviewsSummaryResponse,
   InterviewSummary,
 } from '../common/interfaces/interview.interface';
@@ -177,57 +176,6 @@ export class InterviewsService {
       candidateAnswer: interview.candidateAnswer,
       caseAnalysis: interview.caseAnalysis,
       status: interview.status,
-    };
-  }
-
-  async getUserInterviewsByToken(
-    accessToken: string,
-  ): Promise<GetUserInterviewsResponse> {
-    this.logger.log(`Fetching all interviews for user via access token`);
-
-    // First, find the interview with this token to get participantIdentity
-    const tokenInterview = await this.interviewModel
-      .findOne({ accessToken })
-      .select('participantIdentity')
-      .exec();
-
-    if (!tokenInterview) {
-      throw new NotFoundException('Invalid access token');
-    }
-
-    // Get all interviews for this participant
-    const interviews = await this.interviewModel
-      .find({ participantIdentity: tokenInterview.participantIdentity })
-      .populate('userId', 'email name')
-      .sort({ createdAt: -1 })
-      .exec();
-
-    const formattedInterviews: GetInterviewResponse[] = interviews.map(
-      (interview) => ({
-        id: (interview._id as Types.ObjectId).toString(),
-        userId: interview.userId,
-        createdAt: interview.createdAt,
-        duration: interview.duration,
-        transcript: interview.transcript,
-        recordingUrl: interview.recordingUrl,
-        metrics: {
-          averagePace: interview.averagePace,
-          totalWords: interview.totalWords,
-          fillerCount: interview.fillers.length,
-          pauseCount: interview.pauses.length,
-          paceTimeline: interview.paceTimeline,
-        },
-        caseQuestion: interview.caseQuestion,
-        difficulty: interview.difficulty,
-        candidateAnswer: interview.candidateAnswer,
-        caseAnalysis: interview.caseAnalysis,
-        status: interview.status,
-      }),
-    );
-
-    return {
-      interviews: formattedInterviews,
-      total: formattedInterviews.length,
     };
   }
 

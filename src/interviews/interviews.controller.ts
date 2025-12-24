@@ -5,7 +5,6 @@ import { AnalyzeInterviewDto } from '../common/dto/interview.dto';
 import {
   AnalyzeInterviewResponse,
   GetInterviewResponse,
-  GetUserInterviewsResponse,
   GetUserInterviewsSummaryResponse,
 } from '../common/interfaces/interview.interface';
 import { Public } from '../auth/decorators/public.decorator';
@@ -25,6 +24,15 @@ export class InterviewsController {
     return await this.interviewsService.analyzeInterview(dto);
   }
 
+  @Get('interview')
+  @RequireInterviewAccess()
+  @ApiOperation({ summary: 'Get single interview by access token' })
+  async getInterview(
+    @Headers('x-interview-token') accessToken: string,
+  ): Promise<GetInterviewResponse> {
+    return await this.interviewsService.getInterviewByToken(accessToken);
+  }
+
   @Get('my-interviews/summary')
   @RequireInterviewAccess()
   @ApiOperation({
@@ -37,26 +45,5 @@ export class InterviewsController {
     return await this.interviewsService.getUserInterviewsSummaryByToken(
       accessToken,
     );
-  }
-
-  @Get('my-interviews')
-  @RequireInterviewAccess()
-  @ApiOperation({
-    summary:
-      'Get all interviews by access token (full data including transcripts)',
-  })
-  async getUserInterviews(
-    @Headers('x-interview-token') accessToken: string,
-  ): Promise<GetUserInterviewsResponse> {
-    return await this.interviewsService.getUserInterviewsByToken(accessToken);
-  }
-
-  @Get('interview')
-  @RequireInterviewAccess()
-  @ApiOperation({ summary: 'Get single interview by access token' })
-  async getInterview(
-    @Headers('x-interview-token') accessToken: string,
-  ): Promise<GetInterviewResponse> {
-    return await this.interviewsService.getInterviewByToken(accessToken);
   }
 }
