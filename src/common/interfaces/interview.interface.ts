@@ -9,9 +9,6 @@ export class AnalyzeInterviewResponse {
 
   @ApiProperty()
   message: string;
-
-  @ApiProperty({ description: 'Access token for fetching this interview' })
-  accessToken: string;
 }
 
 export class InterviewMetrics {

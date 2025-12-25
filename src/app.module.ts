@@ -11,8 +11,6 @@ import { LoggerModule } from './common/logger/logger.module';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
-import { InterviewAccessGuard } from './auth/guards/interview-access.guard';
-import { Interview, InterviewSchema } from './schemas/interview.schema';
 
 @Module({
   imports: [
@@ -26,9 +24,6 @@ import { Interview, InterviewSchema } from './schemas/interview.schema';
         uri: configService.get<string>('MONGODB_URI'),
       }),
     }),
-    MongooseModule.forFeature([
-      { name: Interview.name, schema: InterviewSchema },
-    ]),
     LoggerModule,
     RedisModule,
     AuthModule,
@@ -42,10 +37,6 @@ import { Interview, InterviewSchema } from './schemas/interview.schema';
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
-    },
-    {
-      provide: APP_GUARD,
-      useClass: InterviewAccessGuard,
     },
   ],
 })

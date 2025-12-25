@@ -1,9 +1,12 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { AccessToken, RoomServiceClient } from 'livekit-server-sdk';
 import { LivekitTokenResponse } from '../common/interfaces/livekit.interface';
 import { LoggerService } from '../common/logger/logger.service';
+import { AuthContextService } from '../auth/auth-context.service';
 import { CreateTokenDto } from '../common/dto';
+import { UserType } from '../schemas/user.schema';
 
 @Injectable()
 export class LivekitService {
@@ -16,6 +19,8 @@ export class LivekitService {
   constructor(
     private readonly configService: ConfigService,
     private readonly logger: LoggerService,
+    private readonly jwtService: JwtService,
+    private readonly authContext: AuthContextService,
   ) {
     this.logger.setContext(LivekitService.name);
 
@@ -39,27 +44,65 @@ export class LivekitService {
   async createToken(
     createTokenDto: CreateTokenDto,
   ): Promise<LivekitTokenResponse> {
-    const { roomName, participantName } = createTokenDto;
+    const { participantName, interviewType } = createTokenDto;
+
+    // Generate server-side identifiers
+    const user = this.authContext.getCurrentUser();
+    const userId = String(user._id);
+    const participantIdentity =
+      user.userType === UserType.AUTHENTICATED
+        ? userId
+        : user.participantIdentity || userId;
+
+    const timestamp = Date.now();
+    const typePrefix = interviewType || 'interview';
+    const userPrefix = user.userType === UserType.ANONYMOUS ? 'anon' : 'user';
+    const roomName = `${typePrefix}-${userPrefix}-${participantIdentity.substring(0, 8)}-${timestamp}`;
 
     this.logger.log(
-      `Creating token for room: ${roomName}, participant: ${participantName}`,
+      `Creating tokens for room: ${roomName}, participant: ${participantName}, userId: ${userId}`,
     );
 
-    const at = new AccessToken(this.apiKey, this.apiSecret, {
-      identity: participantName,
-      ttl: '5m',
+    // 1. Create LiveKit token (2 hours for long interviews)
+    const livekitAt = new AccessToken(this.apiKey, this.apiSecret, {
+      identity: participantIdentity,
+      name: participantName,
+      ttl: '2h',
     });
 
-    at.addGrant({ roomJoin: true, room: roomName });
-    const token = await at.toJwt();
+    livekitAt.addGrant({
+      roomJoin: true,
+      room: roomName,
+      canPublish: true,
+      canSubscribe: true,
+    });
 
-    // Start 5-minute session timer for market sizing interview
-    this.startSessionTimer(roomName, 300000); // 5 minutes
+    const livekitToken = await livekitAt.toJwt();
+
+    // 2. Create Transcription JWT (2 hours, same as LiveKit)
+    const transcriptionToken = this.jwtService.sign({
+      userId,
+      roomName,
+      participantIdentity,
+      participantName,
+      userType: user.userType,
+      isAnonymous: user.userType === UserType.ANONYMOUS,
+    });
+
+    // Start 2-hour session timer
+    this.startSessionTimer(roomName, 7200000); // 2 hours
 
     this.logger.log(
-      `Token created successfully for participant: ${participantName}`,
+      `Tokens created successfully for participant: ${participantName}`,
     );
-    return { token, url: this.url };
+
+    return {
+      livekitToken,
+      transcriptionToken,
+      url: this.url,
+      roomName,
+      participantIdentity,
+    };
   }
 
   /**

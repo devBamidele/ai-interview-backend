@@ -6,6 +6,7 @@ import { Interview, InterviewDoc } from '../schemas/interview.schema';
 import { AIService } from '../ai/ai.service';
 import { LivekitService } from '../livekit/livekit.service';
 import { LoggerService } from '../common/logger/logger.service';
+import { AuthContextService } from '../auth/auth-context.service';
 import {
   AnalyzeInterviewResponse,
   GetInterviewResponse,
@@ -15,7 +16,6 @@ import {
 import { AnalyzeInterviewDto } from 'src/common/dto';
 import { logError } from 'src/common/utils/error-logger.util';
 import { SessionData } from 'src/common/interfaces';
-import { generateAccessToken } from '../common/utils/token.util';
 
 @Injectable()
 export class InterviewsService {
@@ -24,6 +24,7 @@ export class InterviewsService {
     @InjectModel(Interview.name) private interviewModel: Model<InterviewDoc>,
     private aiService: AIService,
     private livekitService: LivekitService,
+    private authContext: AuthContextService,
     private readonly logger: LoggerService,
   ) {
     this.logger.setContext(InterviewsService.name);
@@ -50,9 +51,6 @@ export class InterviewsService {
       });
     }
 
-    // Generate unique access token for this interview
-    const accessToken = generateAccessToken();
-
     // Create interview record with processing status - Market Sizing
     const interview = await this.interviewModel.create({
       userId: user._id,
@@ -71,7 +69,6 @@ export class InterviewsService {
       difficulty: dto.difficulty,
       candidateAnswer: dto.candidateAnswer,
       status: 'processing',
-      accessToken,
     });
 
     const interviewId = (interview._id as Types.ObjectId).toString();
@@ -91,7 +88,6 @@ export class InterviewsService {
       interviewId,
       status: 'processing',
       message: 'Interview saved. AI analysis in progress...',
-      accessToken,
     };
   }
 
@@ -141,18 +137,24 @@ export class InterviewsService {
     }
   }
 
-  async getInterviewByToken(
-    accessToken: string,
-  ): Promise<GetInterviewResponse> {
-    this.logger.log(`Fetching interview with access token`);
+  async getInterviewById(interviewId: string): Promise<GetInterviewResponse> {
+    const userId = this.authContext.getCurrentUserId();
+    this.logger.log(`Fetching interview ${interviewId} for user: ${userId}`);
 
+    if (!interviewId) {
+      throw new NotFoundException('interviewId query parameter is required');
+    }
+
+    // Verify interview belongs to user
     const interview = await this.interviewModel
-      .findOne({ accessToken })
+      .findOne({ _id: interviewId, userId })
       .populate('userId', 'email name')
       .exec();
 
     if (!interview) {
-      throw new NotFoundException(`Interview not found`);
+      throw new NotFoundException(
+        'Interview not found or does not belong to this user',
+      );
     }
 
     const id = (interview._id as Types.ObjectId).toString();
@@ -179,26 +181,13 @@ export class InterviewsService {
     };
   }
 
-  async getUserInterviewsSummaryByToken(
-    accessToken: string,
-  ): Promise<GetUserInterviewsSummaryResponse> {
-    this.logger.log(
-      `Fetching interview summaries for user via access token (optimized)`,
-    );
+  async getUserInterviewsSummary(): Promise<GetUserInterviewsSummaryResponse> {
+    const userId = this.authContext.getCurrentUserId();
+    this.logger.log(`Fetching interview summaries for user: ${userId}`);
 
-    // First, find the interview with this token to get participantIdentity
-    const tokenInterview = await this.interviewModel
-      .findOne({ accessToken })
-      .select('participantIdentity')
-      .exec();
-
-    if (!tokenInterview) {
-      throw new NotFoundException('Invalid access token');
-    }
-
-    // Get all interviews for this participant - OPTIMIZED: Only select essential fields
+    // Get all interviews for this user - OPTIMIZED: Only select essential fields
     const interviews = await this.interviewModel
-      .find({ participantIdentity: tokenInterview.participantIdentity })
+      .find({ userId })
       .select(
         '_id status createdAt duration caseQuestion difficulty candidateAnswer caseAnalysis.overallWeightedScore caseAnalysis.overallLabel',
       )

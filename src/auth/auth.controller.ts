@@ -1,22 +1,27 @@
-import { Controller, Post, Body, UseGuards, Param } from '@nestjs/common';
+import { Controller, Post, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from './decorators/public.decorator';
-import type { UserDoc } from '../schemas/user.schema';
 import {
   SignupDto,
   LoginDto,
   RefreshTokenDto,
   UpgradeAccountDto,
   LogoutDto,
+  AnonymousSessionDto,
 } from '../common/dto/auth.dto';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Post('anonymous-session')
+  @Public()
+  @ApiOperation({ summary: 'Create or retrieve anonymous session' })
+  async createAnonymousSession(@Body() dto: AnonymousSessionDto) {
+    return await this.authService.createAnonymousSession(dto.deviceId);
+  }
 
   @Post('signup')
   @Public()
@@ -40,12 +45,10 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout from current or all devices' })
-  async logout(@CurrentUser() user: UserDoc, @Body() dto: LogoutDto) {
-    const userId = String(user._id);
-    await this.authService.logout(userId, dto.refreshToken);
+  async logout(@Body() dto: LogoutDto) {
+    await this.authService.logout(dto.refreshToken);
     return { message: 'Logout successful' };
   }
 

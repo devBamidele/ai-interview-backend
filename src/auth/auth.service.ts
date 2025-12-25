@@ -13,6 +13,7 @@ import { User, UserDoc, UserType } from '../schemas/user.schema';
 import { Interview, InterviewDoc } from '../schemas/interview.schema';
 import { RedisService } from '../redis/redis.service';
 import { LoggerService } from '../common/logger/logger.service';
+import { AuthContextService } from './auth-context.service';
 import {
   SignupDto,
   LoginDto,
@@ -39,6 +40,7 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
     private redisService: RedisService,
+    private authContext: AuthContextService,
     private readonly logger: LoggerService,
   ) {
     this.logger.setContext(AuthService.name);
@@ -157,7 +159,9 @@ export class AuthService {
     }
   }
 
-  async logout(userId: string, refreshToken?: string): Promise<void> {
+  async logout(refreshToken?: string): Promise<void> {
+    const user = this.authContext.getCurrentUser();
+    const userId = String(user._id);
     this.logger.log(`Logout for user: ${userId}`);
 
     if (refreshToken) {
@@ -165,6 +169,50 @@ export class AuthService {
     } else {
       await this.redisService.removeAllRefreshTokens(userId);
     }
+  }
+
+  async createAnonymousSession(
+    deviceId: string,
+  ): Promise<TokenPair & { user: any }> {
+    this.logger.log(`Anonymous session request for deviceId: ${deviceId}`);
+
+    let user = await this.userModel.findOne({
+      participantIdentity: deviceId,
+      userType: UserType.ANONYMOUS,
+    });
+
+    if (!user) {
+      user = await this.userModel.create({
+        participantIdentity: deviceId,
+        userType: UserType.ANONYMOUS,
+        name: `Guest-${deviceId.substring(0, 8)}`,
+        email: `${deviceId}@anonymous.local`,
+        lastLoginAt: new Date(),
+      });
+
+      this.logger.log(
+        `Anonymous user created: ${String(user._id)} (deviceId: ${deviceId})`,
+      );
+    } else {
+      user.lastLoginAt = new Date();
+      await user.save();
+
+      this.logger.log(
+        `Existing anonymous user session: ${String(user._id)} (deviceId: ${deviceId})`,
+      );
+    }
+
+    const tokens = await this.generateTokenPair(user);
+
+    return {
+      ...tokens,
+      user: {
+        id: String(user._id),
+        participantIdentity: user.participantIdentity,
+        name: user.name,
+        userType: user.userType,
+      },
+    };
   }
 
   async upgradeAccount(
@@ -221,26 +269,6 @@ export class AuthService {
         upgradedAt: anonymousUser.upgradedAt,
       },
     };
-  }
-
-  async getOrCreateAnonymousUser(
-    participantIdentity: string,
-  ): Promise<UserDoc> {
-    let user = await this.userModel.findOne({
-      participantIdentity,
-    });
-
-    if (!user) {
-      user = await this.userModel.create({
-        email: `${participantIdentity}@temp.com`,
-        name: participantIdentity,
-        participantIdentity,
-        userType: UserType.ANONYMOUS,
-      });
-      this.logger.log(`Anonymous user created: ${String(user._id)}`);
-    }
-
-    return user;
   }
 
   async validateUser(payload: JwtPayload): Promise<UserDoc> {

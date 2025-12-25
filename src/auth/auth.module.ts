@@ -5,6 +5,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuthContextService } from './auth-context.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { User, UserSchema } from '../schemas/user.schema';
@@ -38,7 +39,7 @@ import { StringValue } from 'ms';
     LoggerModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtRefreshStrategy],
-  exports: [AuthService, JwtStrategy],
+  providers: [AuthService, AuthContextService, JwtStrategy, JwtRefreshStrategy],
+  exports: [AuthService, AuthContextService, JwtStrategy],
 })
 export class AuthModule {}

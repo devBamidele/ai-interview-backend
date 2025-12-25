@@ -1,5 +1,10 @@
-import { Controller, Post, Get, Body, Headers } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Controller, Post, Get, Body, UseGuards, Query } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiQuery,
+} from '@nestjs/swagger';
 import { InterviewsService } from './interviews.service';
 import { AnalyzeInterviewDto } from '../common/dto/interview.dto';
 import {
@@ -7,8 +12,8 @@ import {
   GetInterviewResponse,
   GetUserInterviewsSummaryResponse,
 } from '../common/interfaces/interview.interface';
-import { Public } from '../auth/decorators/public.decorator';
-import { RequireInterviewAccess } from '../auth/decorators/interview-access.decorator';
+import { TranscriptionServiceGuard } from '../auth/guards/transcription-service.guard';
+import { Public } from 'src/auth/decorators/public.decorator';
 
 @ApiTags('interviews')
 @Controller('interviews')
@@ -17,6 +22,7 @@ export class InterviewsController {
 
   @Post('analyze')
   @Public()
+  @UseGuards(TranscriptionServiceGuard)
   @ApiOperation({ summary: 'Analyze market sizing interview' })
   async analyzeInterview(
     @Body() dto: AnalyzeInterviewDto,
@@ -25,25 +31,25 @@ export class InterviewsController {
   }
 
   @Get('interview')
-  @RequireInterviewAccess()
-  @ApiOperation({ summary: 'Get single interview by access token' })
+  @ApiBearerAuth()
+  @ApiQuery({
+    name: 'interviewId',
+    required: true,
+    description: 'Interview ID',
+  })
+  @ApiOperation({ summary: 'Get specific interview by ID' })
   async getInterview(
-    @Headers('x-interview-token') accessToken: string,
+    @Query('interviewId') interviewId: string,
   ): Promise<GetInterviewResponse> {
-    return await this.interviewsService.getInterviewByToken(accessToken);
+    return await this.interviewsService.getInterviewById(interviewId);
   }
 
   @Get('my-interviews/summary')
-  @RequireInterviewAccess()
+  @ApiBearerAuth()
   @ApiOperation({
-    summary:
-      'Get interview summaries by access token (optimized - no transcripts)',
+    summary: 'Get interview summaries (optimized - no transcripts)',
   })
-  async getUserInterviewsSummary(
-    @Headers('x-interview-token') accessToken: string,
-  ): Promise<GetUserInterviewsSummaryResponse> {
-    return await this.interviewsService.getUserInterviewsSummaryByToken(
-      accessToken,
-    );
+  async getUserInterviewsSummary(): Promise<GetUserInterviewsSummaryResponse> {
+    return await this.interviewsService.getUserInterviewsSummary();
   }
 }

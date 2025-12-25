@@ -10,7 +10,10 @@ import {
 } from '../schemas/case-question.schema';
 import { AIModule } from '../ai/ai.module';
 import { LivekitModule } from '../livekit/livekit.module';
-import { LivekitService } from 'src/livekit/livekit.service';
+import { LivekitService } from '../livekit/livekit.service';
+import { LoggerModule } from '../common/logger/logger.module';
+import { JwtService } from '@nestjs/jwt';
+import { AuthContextService } from 'src/auth/auth-context.service';
 
 @Module({
   imports: [
@@ -21,8 +24,14 @@ import { LivekitService } from 'src/livekit/livekit.service';
     ]),
     AIModule,
     LivekitModule,
+    LoggerModule,
   ],
   controllers: [InterviewsController],
-  providers: [InterviewsService, LivekitService],
+  providers: [
+    InterviewsService,
+    LivekitService,
+    JwtService,
+    AuthContextService,
+  ],
 })
 export class InterviewsModule {}
