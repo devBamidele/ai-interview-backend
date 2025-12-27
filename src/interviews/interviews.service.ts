@@ -138,8 +138,11 @@ export class InterviewsService {
   }
 
   async getInterviewById(interviewId: string): Promise<GetInterviewResponse> {
-    const userId = this.authContext.getCurrentUserId();
-    this.logger.log(`Fetching interview ${interviewId} for user: ${userId}`);
+    const user = this.authContext.getCurrentUser();
+    const userId = user._id; // Use ObjectId directly
+    this.logger.log(
+      `Fetching interview ${interviewId} for user: ${String(userId)}`,
+    );
 
     if (!interviewId) {
       throw new NotFoundException('interviewId query parameter is required');
@@ -182,8 +185,8 @@ export class InterviewsService {
   }
 
   async getUserInterviewsSummary(): Promise<GetUserInterviewsSummaryResponse> {
-    const userId = this.authContext.getCurrentUserId();
-    this.logger.log(`Fetching interview summaries for user: ${userId}`);
+    const user = this.authContext.getCurrentUser();
+    const userId = user._id;
 
     // Get all interviews for this user - OPTIMIZED: Only select essential fields
     const interviews = await this.interviewModel
