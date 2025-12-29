@@ -184,13 +184,13 @@ export class CaseAnalysis {
 
 @Schema({ timestamps: true })
 export class Interview {
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
   userId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   roomName: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, index: true })
   participantIdentity: string;
 
   @Prop({ required: true })
@@ -243,6 +243,7 @@ export class Interview {
     required: true,
     enum: ['processing', 'completed', 'failed'],
     default: 'processing',
+    index: true,
   })
   status: string;
 
@@ -253,3 +254,8 @@ export class Interview {
 }
 
 export const InterviewSchema = SchemaFactory.createForClass(Interview);
+
+// Compound indexes for optimized queries
+InterviewSchema.index({ userId: 1, createdAt: -1 }); // User interview history (most common query)
+InterviewSchema.index({ userId: 1, status: 1 }); // User interviews filtered by status
+InterviewSchema.index({ status: 1, createdAt: -1 }); // All interviews by status and date

@@ -134,13 +134,13 @@ export function validateEnvironment(
   config: Record<string, unknown>,
 ): Record<string, unknown> {
   const schema = getValidationSchema();
-  const { error, value } = schema.validate(config, {
+  const result = schema.validate(config, {
     abortEarly: false,
     allowUnknown: true,
   });
 
-  if (error) {
-    const missingVars = error.details
+  if (result.error) {
+    const missingVars = result.error.details
       .map((detail) => detail.message)
       .join(', ');
     throw new Error(
@@ -148,7 +148,7 @@ export function validateEnvironment(
     );
   }
 
-  return value;
+  return result.value as Record<string, unknown>;
 }
 
 /**

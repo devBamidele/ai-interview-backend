@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { LivekitModule } from './livekit/livekit.module';
 import { InterviewsModule } from './interviews/interviews.module';
 import { AIModule } from './ai/ai.module';
@@ -11,6 +12,7 @@ import { LoggerModule } from './common/logger/logger.module';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { HealthModule } from './health/health.module';
 import {
   getEnvFilePath,
   validateEnvironment,
@@ -24,6 +26,12 @@ import {
       validate: validateEnvironment,
       cache: true,
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 60 seconds
+        limit: 100, // 100 requests per minute (global default)
+      },
+    ]),
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -41,6 +49,7 @@ import {
     LoggerModule,
     RedisModule,
     AuthModule,
+    HealthModule,
     LivekitModule,
     InterviewsModule,
     AIModule,
@@ -51,6 +60,10 @@ import {
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard, // Global rate limiting
     },
   ],
 })

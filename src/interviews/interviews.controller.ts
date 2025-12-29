@@ -14,6 +14,7 @@ import {
 } from '../common/interfaces/interview.interface';
 import { TranscriptionServiceGuard } from '../auth/guards/transcription-service.guard';
 import { Public } from 'src/auth/decorators/public.decorator';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @ApiTags('interviews')
 @Controller('interviews')
@@ -47,9 +48,28 @@ export class InterviewsController {
   @Get('my-interviews/summary')
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Get interview summaries (optimized - no transcripts)',
+    summary: 'Get paginated interview summaries (optimized - no transcripts)',
   })
-  async getUserInterviewsSummary(): Promise<GetUserInterviewsSummaryResponse> {
-    return await this.interviewsService.getUserInterviewsSummary();
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number (1-indexed)',
+    example: 1,
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Number of items per page (max 100)',
+    example: 20,
+  })
+  async getUserInterviewsSummary(
+    @Query() paginationDto: PaginationDto,
+  ): Promise<GetUserInterviewsSummaryResponse> {
+    return await this.interviewsService.getUserInterviewsSummary(
+      paginationDto.page,
+      paginationDto.limit,
+    );
   }
 }

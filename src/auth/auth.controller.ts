@@ -1,5 +1,6 @@
 import { Controller, Post, Body, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
 import {
@@ -25,6 +26,7 @@ export class AuthController {
 
   @Post('signup')
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
   @ApiOperation({ summary: 'Create new authenticated account' })
   async signup(@Body() dto: SignupDto) {
     return await this.authService.signup(dto);
@@ -32,6 +34,7 @@ export class AuthController {
 
   @Post('login')
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
   @ApiOperation({ summary: 'Login to authenticated account' })
   async login(@Body() dto: LoginDto) {
     return await this.authService.login(dto);

@@ -82,8 +82,10 @@ export class GcpSecretsConfig {
 
       return secretValue;
     } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
       this.logger?.error(
-        `Failed to fetch secret ${secretName}: ${error.message}`,
+        `Failed to fetch secret ${secretName}: ${errorMessage}`,
       );
 
       // Fallback to environment variable if secret fetch fails

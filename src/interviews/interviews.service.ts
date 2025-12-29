@@ -184,17 +184,29 @@ export class InterviewsService {
     };
   }
 
-  async getUserInterviewsSummary(): Promise<GetUserInterviewsSummaryResponse> {
+  async getUserInterviewsSummary(
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<GetUserInterviewsSummaryResponse> {
     const user = this.authContext.getCurrentUser();
     const userId = user._id;
 
-    // Get all interviews for this user - OPTIMIZED: Only select essential fields
+    // Calculate skip for pagination
+    const skip = (page - 1) * limit;
+
+    // Get total count for this user
+    const total = await this.interviewModel.countDocuments({ userId });
+
+    // Get paginated interviews for this user - OPTIMIZED: Only select essential fields
     const interviews = await this.interviewModel
       .find({ userId })
       .select(
         '_id status createdAt duration caseQuestion difficulty candidateAnswer caseAnalysis.overallWeightedScore caseAnalysis.overallLabel',
       )
       .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean() // Use lean() for better performance when not modifying documents
       .exec();
 
     const summaries: InterviewSummary[] = interviews.map((interview) => ({
@@ -209,9 +221,16 @@ export class InterviewsService {
       overallLabel: interview.caseAnalysis?.overallLabel,
     }));
 
+    const totalPages = Math.ceil(total / limit);
+
     return {
       interviews: summaries,
-      total: summaries.length,
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNextPage: page < totalPages,
+      hasPrevPage: page > 1,
     };
   }
 }

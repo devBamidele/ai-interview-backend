@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as bodyParser from 'body-parser';
+import helmet from 'helmet';
 import { getAllowedOrigins, getEnvironment } from './config/environment.config';
 import { GcpSecretsConfig } from './config/gcp-secrets.config';
 
@@ -13,9 +14,35 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
 
+  // Enable graceful shutdown hooks
+  // This allows NestJS to properly close connections on SIGTERM/SIGINT
+  app.enableShutdownHooks();
+
   // Get current environment
   const environment = getEnvironment();
   console.log(`Starting AI Interview Backend in ${environment} mode`);
+
+  // Security headers with Helmet
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for Swagger
+          scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for Swagger
+          imgSrc: ["'self'", 'data:', 'https:'],
+        },
+      },
+      hsts: {
+        maxAge: 31536000, // 1 year
+        includeSubDomains: true,
+        preload: true,
+      },
+      frameguard: {
+        action: 'deny', // Prevent clickjacking
+      },
+    }),
+  );
 
   // Increase body size limit for large interview transcripts
   app.use(bodyParser.json({ limit: '10mb' }));

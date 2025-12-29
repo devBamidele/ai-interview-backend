@@ -12,7 +12,9 @@ export class LivekitController {
   @Post('token')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create LiveKit and transcription tokens' })
-  async createToken(@Body() body: CreateTokenDto): Promise<LivekitTokenResponse> {
+  async createToken(
+    @Body() body: CreateTokenDto,
+  ): Promise<LivekitTokenResponse> {
     return await this.livekitService.createToken(body);
   }
 }
