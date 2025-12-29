@@ -1,0 +1,168 @@
+# ============================================
+# Cloud Run Service Configuration - PRODUCTION
+# ============================================
+# Deploy with: gcloud run services replace cloud-run-production.yaml
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ai-interview-backend-production
+  labels:
+    app: ai-interview-backend
+    environment: production
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/ingress-status: all
+spec:
+  template:
+    metadata:
+      annotations:
+        # Autoscaling
+        autoscaling.knative.dev/minScale: '1'    # Keep 1 instance warm for faster response
+        autoscaling.knative.dev/maxScale: '100'  # Max 100 instances for high traffic
+
+        # CPU allocation - always allocate CPU (not just during requests)
+        run.googleapis.com/cpu-throttling: 'false'
+
+        # Cloud SQL (if using Cloud SQL instead of Atlas)
+        # run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE_NAME
+
+        # VPC Connector (if needed for private resources)
+        # run.googleapis.com/vpc-access-connector: projects/PROJECT_ID/locations/REGION/connectors/CONNECTOR_NAME
+        # run.googleapis.com/vpc-access-egress: private-ranges-only
+
+    spec:
+      # Allow up to 80 concurrent requests per instance
+      containerConcurrency: 80
+
+      # 5-minute timeout for long-running AI analysis
+      timeoutSeconds: 300
+
+      # Service account with permissions to access Secret Manager
+      serviceAccountName: ai-interview-backend-production@rehears3.iam.gserviceaccount.com
+
+      containers:
+      - name: backend
+        # Image will be set during deployment
+        image: us-central1-docker.pkg.dev/rehears3/ai-interview-backend/backend:production-latest
+
+        ports:
+        - name: http1
+          containerPort: 8080
+
+        # Resource limits (higher for production)
+        resources:
+          limits:
+            cpu: '2'      # 2 vCPUs for better performance
+            memory: 2Gi   # 2 GB RAM for AI processing
+
+        # Environment variables
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: PORT
+          value: '8080'
+        - name: GCP_PROJECT_ID
+          value: rehears3
+
+        # Secrets from Secret Manager (mounted as environment variables)
+        # Format: SECRET_NAME=ai-interview-<secret>-production:latest
+        - name: MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: ai-interview-mongodb-uri-production
+              key: latest
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: ai-interview-redis-url-production
+              key: latest
+        - name: JWT_ACCESS_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ai-interview-jwt-access-secret-production
+              key: latest
+        - name: JWT_REFRESH_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ai-interview-jwt-refresh-secret-production
+              key: latest
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ai-interview-openai-api-key-production
+              key: latest
+        - name: LIVEKIT_URL
+          valueFrom:
+            secretKeyRef:
+              name: ai-interview-livekit-url-production
+              key: latest
+        - name: LIVEKIT_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ai-interview-livekit-api-key-production
+              key: latest
+        - name: LIVEKIT_API_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ai-interview-livekit-api-secret-production
+              key: latest
+        - name: TRANSCRIPTION_SERVICE_URL
+          valueFrom:
+            secretKeyRef:
+              name: ai-interview-transcription-service-url-production
+              key: latest
+        - name: TRANSCRIPTION_SERVICE_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: ai-interview-transcription-service-api-key-production
+              key: latest
+        - name: TRANSCRIPTION_JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: ai-interview-transcription-jwt-secret-production
+              key: latest
+        - name: TRANSCRIPTION_JWT_ISSUER
+          value: interview-backend
+        - name: TRANSCRIPTION_JWT_AUDIENCE
+          value: transcription-service
+        - name: JWT_ACCESS_EXPIRATION
+          value: 30m
+        - name: JWT_REFRESH_EXPIRATION
+          value: 7d
+        - name: ALLOWED_ORIGINS
+          value: https://app.yourdomain.com
+
+        # Liveness probe - restart if app crashes
+        livenessProbe:
+          httpGet:
+            path: /health/liveness
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        # Readiness probe - route traffic when ready
+        readinessProbe:
+          httpGet:
+            path: /health/readiness
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 2
+
+        # Startup probe - allow time for initial startup
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: 8080
+          initialDelaySeconds: 0
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30  # 300 seconds max startup time
+
+  traffic:
+  - percent: 100
+    latestRevision: true

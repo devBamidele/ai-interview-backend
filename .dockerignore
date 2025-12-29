@@ -1,0 +1,69 @@
+# Dependencies
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Build output
+dist
+build
+.next
+out
+
+# Environment files (use env vars or secrets instead)
+.env
+.env.local
+.env.staging
+.env.production
+.env.*.local
+development.env
+*.env
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+coverage
+.nyc_output
+*.log
+
+# Documentation
+*.md
+!README.md
+docs
+
+# CI/CD
+.github
+.gitlab-ci.yml
+.travis.yml
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Misc
+.editorconfig
+.prettierrc
+.eslintrc.js
+# Don't ignore tsconfig.json and nest-cli.json - needed for build!
+# tsconfig*.json
+# nest-cli.json
+
+# Scripts (if not needed in container)
+scripts
+
+# Temporary files
+.temp
+.tmp
+tmp
+temp
