@@ -4,9 +4,18 @@ import { ValidationPipe } from '@nestjs/common';
 import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import * as bodyParser from 'body-parser';
+import { getAllowedOrigins, getEnvironment } from './config/environment.config';
+import { GcpSecretsConfig } from './config/gcp-secrets.config';
 
 async function bootstrap() {
+  // Initialize GCP Secret Manager for production/staging
+  GcpSecretsConfig.initialize();
+
   const app = await NestFactory.create(AppModule);
+
+  // Get current environment
+  const environment = getEnvironment();
+  console.log(`Starting AI Interview Backend in ${environment} mode`);
 
   // Increase body size limit for large interview transcripts
   app.use(bodyParser.json({ limit: '10mb' }));
@@ -27,11 +36,15 @@ async function bootstrap() {
     }),
   );
 
-  // Enable CORS
+  // Enable CORS with environment-specific origins
+  const allowedOrigins = getAllowedOrigins();
   app.enableCors({
-    origin: true, // Configure specific origins in production
+    origin: allowedOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
+  console.log(`CORS enabled for origins: ${allowedOrigins.join(', ')}`);
 
   app.useGlobalFilters(new AllExceptionsFilter());
 
@@ -66,7 +79,12 @@ async function bootstrap() {
     customCss: '.swagger-ui .topbar { display: none }',
   });
 
-  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
+  // Use port 8080 for Cloud Run compatibility (default Cloud Run port)
+  const port = process.env.PORT ?? 8080;
+  await app.listen(port, '0.0.0.0');
+
+  console.log(`🚀 Application is running on: http://0.0.0.0:${port}`);
+  console.log(`📚 API Documentation: http://0.0.0.0:${port}/api/docs`);
 }
 
 void bootstrap();

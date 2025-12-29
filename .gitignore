@@ -41,8 +41,13 @@ lerna-debug.log*
 .env.test.local
 .env.production.local
 .env.local
+.env.staging
+.env.production
 development.env
 *.env
+
+# IMPORTANT: Never commit actual secrets
+# Only .env.example should be committed
 
 # temp directory
 .temp

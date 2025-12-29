@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
+import { timingSafeEqual } from 'crypto';
 import { LoggerService } from '../../common/logger/logger.service';
 
 @Injectable()
@@ -41,7 +42,15 @@ export class TranscriptionServiceGuard implements CanActivate {
 
     const providedKey = authHeader.replace('Bearer ', '');
 
-    if (providedKey !== expectedKey) {
+    // Use constant-time comparison to prevent timing attacks
+    const expectedBuffer = Buffer.from(expectedKey);
+    const providedBuffer = Buffer.from(providedKey);
+
+    // Check lengths first (still constant time if we check both conditions)
+    if (
+      expectedBuffer.length !== providedBuffer.length ||
+      !timingSafeEqual(expectedBuffer, providedBuffer)
+    ) {
       this.logger.warn(
         `Invalid service API key attempt from IP: ${request.ip || 'unknown'}`,
       );
