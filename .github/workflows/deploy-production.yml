@@ -230,9 +230,10 @@ jobs:
         run: |
           CANDIDATE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
             --region=${{ env.GCP_REGION }} \
-            --format='value(status.traffic[0].url)' | grep 'candidate' || echo "")
+            --format='yaml(status.traffic)' | grep -A 1 'tag: candidate' | grep 'url:' | awk '{print $2}')
           if [ -z "$CANDIDATE_URL" ]; then
-            CANDIDATE_URL="https://candidate---${{ env.SERVICE_NAME }}-$(echo ${{ env.GCP_REGION }} | tr -d '-')-${{ env.GCP_PROJECT_ID }}.a.run.app"
+            echo "Error: Could not find candidate URL in traffic configuration"
+            exit 1
           fi
           echo "CANDIDATE_URL=$CANDIDATE_URL" >> $GITHUB_OUTPUT
           echo "Candidate URL: $CANDIDATE_URL"
