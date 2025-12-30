@@ -155,7 +155,7 @@ jobs:
 
       - name: Health check - Liveness
         run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.get-url.outputs.SERVICE_URL }}/health/liveness")
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.get-url.outputs.SERVICE_URL }}/api/health/liveness")
           if [ "$RESPONSE" != "200" ]; then
             echo "Liveness check failed with status $RESPONSE"
             exit 1
@@ -164,7 +164,7 @@ jobs:
 
       - name: Health check - Readiness
         run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.get-url.outputs.SERVICE_URL }}/health/readiness")
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.get-url.outputs.SERVICE_URL }}/api/health/readiness")
           if [ "$RESPONSE" != "200" ]; then
             echo "Readiness check failed with status $RESPONSE"
             exit 1
