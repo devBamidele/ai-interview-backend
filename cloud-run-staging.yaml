@@ -17,8 +17,11 @@ spec:
   template:
     metadata:
       annotations:
+        # Force new revision after secret update
+        client.knative.dev/user-image: "us-central1-docker.pkg.dev/rehears3/ai-interview-backend/backend:staging-v2"
+
         # Autoscaling
-        autoscaling.knative.dev/minScale: '0'  # Scale to zero when no traffic
+        autoscaling.knative.dev/minScale: '0' # Scale to zero when no traffic
         autoscaling.knative.dev/maxScale: '10' # Max 10 instances
 
         # Cloud SQL (if using Cloud SQL instead of Atlas)
@@ -36,130 +39,116 @@ spec:
       timeoutSeconds: 300
 
       # Service account with permissions to access Secret Manager
-      serviceAccountName: ai-interview-backend-staging@rehears3.iam.gserviceaccount.com
+      serviceAccountName: aib-stg@rehears3.iam.gserviceaccount.com
 
       containers:
-      - name: backend
-        # Image will be set during deployment
-        image: us-central1-docker.pkg.dev/rehears3/ai-interview-backend/backend:staging-latest
+        - name: backend
+          # Image will be set during deployment
+          image: us-central1-docker.pkg.dev/rehears3/ai-interview-backend/backend:staging-v2
 
-        ports:
-        - name: http1
-          containerPort: 8080
+          ports:
+            - name: http1
+              containerPort: 8080
 
-        # Resource limits
-        resources:
-          limits:
-            cpu: '1'      # 1 vCPU
-            memory: 1Gi   # 1 GB RAM
+          # Resource limits
+          resources:
+            limits:
+              cpu: '1' # 1 vCPU
+              memory: 1Gi # 1 GB RAM
 
-        # Environment variables
-        env:
-        - name: NODE_ENV
-          value: staging
-        - name: PORT
-          value: '8080'
-        - name: GCP_PROJECT_ID
-          value: rehears3
+          # Environment variables
+          env:
+            - name: NODE_ENV
+              value: staging
+            - name: GCP_PROJECT_ID
+              value: rehears3
 
-        # Secrets from Secret Manager (mounted as environment variables)
-        # Format: SECRET_NAME=ai-interview-<secret>-staging:latest
-        - name: MONGODB_URI
-          valueFrom:
-            secretKeyRef:
-              name: ai-interview-mongodb-uri-staging
-              key: latest
-        - name: REDIS_URL
-          valueFrom:
-            secretKeyRef:
-              name: ai-interview-redis-url-staging
-              key: latest
-        - name: JWT_ACCESS_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: ai-interview-jwt-access-secret-staging
-              key: latest
-        - name: JWT_REFRESH_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: ai-interview-jwt-refresh-secret-staging
-              key: latest
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: ai-interview-openai-api-key-staging
-              key: latest
-        - name: LIVEKIT_URL
-          valueFrom:
-            secretKeyRef:
-              name: ai-interview-livekit-url-staging
-              key: latest
-        - name: LIVEKIT_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: ai-interview-livekit-api-key-staging
-              key: latest
-        - name: LIVEKIT_API_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: ai-interview-livekit-api-secret-staging
-              key: latest
-        - name: TRANSCRIPTION_SERVICE_URL
-          valueFrom:
-            secretKeyRef:
-              name: ai-interview-transcription-service-url-staging
-              key: latest
-        - name: TRANSCRIPTION_SERVICE_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: ai-interview-transcription-service-api-key-staging
-              key: latest
-        - name: TRANSCRIPTION_JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: ai-interview-transcription-jwt-secret-staging
-              key: latest
-        - name: TRANSCRIPTION_JWT_ISSUER
-          value: interview-backend
-        - name: TRANSCRIPTION_JWT_AUDIENCE
-          value: transcription-service
-        - name: JWT_ACCESS_EXPIRATION
-          value: 30m
-        - name: JWT_REFRESH_EXPIRATION
-          value: 7d
-        - name: ALLOWED_ORIGINS
-          value: https://staging.yourdomain.com
+            # Secrets from Secret Manager (mounted as environment variables)
+            # Format: SECRET_NAME=ai-interview-<secret>-staging:latest
+            - name: MONGODB_URI
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-mongodb-uri-staging
+                  key: latest
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-redis-url-staging
+                  key: latest
+            - name: JWT_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-jwt-access-secret-staging
+                  key: latest
+            - name: JWT_REFRESH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-jwt-refresh-secret-staging
+                  key: latest
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-openai-api-key-staging
+                  key: latest
+            - name: LIVEKIT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-livekit-url-staging
+                  key: latest
+            - name: LIVEKIT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-livekit-api-key-staging
+                  key: latest
+            - name: LIVEKIT_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-livekit-api-secret-staging
+                  key: latest
+            - name: TRANSCRIPTION_SERVICE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-transcription-service-url-staging
+                  key: latest
+            - name: TRANSCRIPTION_SERVICE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-transcription-service-api-key-staging
+                  key: latest
+            - name: TRANSCRIPTION_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: ai-interview-transcription-jwt-secret-staging
+                  key: latest
+            - name: TRANSCRIPTION_JWT_ISSUER
+              value: interview-backend
+            - name: TRANSCRIPTION_JWT_AUDIENCE
+              value: transcription-service
+            - name: JWT_ACCESS_EXPIRATION
+              value: 30m
+            - name: JWT_REFRESH_EXPIRATION
+              value: 7d
+            - name: ALLOWED_ORIGINS
+              value: https://staging.yourdomain.com
 
-        # Liveness probe - restart if app crashes
-        livenessProbe:
-          httpGet:
-            path: /health/liveness
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
+          # Liveness probe - restart if app crashes
+          livenessProbe:
+            httpGet:
+              path: /api/health/liveness
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
 
-        # Readiness probe - route traffic when ready
-        readinessProbe:
-          httpGet:
-            path: /health/readiness
-            port: 8080
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          timeoutSeconds: 5
-          failureThreshold: 2
-
-        # Startup probe - allow time for initial startup
-        startupProbe:
-          httpGet:
-            path: /health/startup
-            port: 8080
-          initialDelaySeconds: 0
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 30  # 300 seconds max startup time
+          # Startup probe - allow time for initial startup
+          startupProbe:
+            httpGet:
+              path: /api/health/startup
+              port: 8080
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30 # 300 seconds max startup time
 
   traffic:
-  - percent: 100
-    latestRevision: true
+    - percent: 100
+      latestRevision: true

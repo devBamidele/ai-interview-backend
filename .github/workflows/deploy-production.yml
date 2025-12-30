@@ -1,0 +1,359 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests (emergency deployment only)'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  GCP_PROJECT_ID: rehears3
+  GCP_REGION: us-central1
+  SERVICE_NAME: ai-interview-backend-production
+  REGISTRY: us-central1-docker.pkg.dev
+  REPOSITORY: ai-interview-backend
+
+jobs:
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_tests }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linter
+        run: npm run lint
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_tests }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage
+        run: npm run test:cov
+
+      - name: Check test coverage threshold
+        run: |
+          COVERAGE=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+          echo "Current coverage: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 10" | bc -l) )); then
+            echo "⚠️ Warning: Coverage is below 10% threshold"
+          fi
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-production
+          fail_ci_if_error: false
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Run npm audit (fail on high/critical)
+        run: npm audit --audit-level=high
+
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [lint, test, security]
+    if: |
+      always() &&
+      (needs.security.result == 'success') &&
+      (inputs.skip_tests || (needs.lint.result == 'success' && needs.test.result == 'success'))
+
+    permissions:
+      contents: read
+      id-token: write
+
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      service_url: ${{ steps.get-url.outputs.SERVICE_URL }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          IMAGE_TAG=production-${{ github.sha }}
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "Image tag: $IMAGE_TAG"
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGISTRY }}
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/backend:${{ steps.meta.outputs.image_tag }} \
+            -t ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/backend:production-latest \
+            .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/backend:${{ steps.meta.outputs.image_tag }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Push Docker image to Artifact Registry
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/backend:${{ steps.meta.outputs.image_tag }}
+          docker push ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/backend:production-latest
+
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    needs: [build-and-push]
+    environment:
+      name: production
+      url: ${{ steps.get-url.outputs.SERVICE_URL }}
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get current revision (for rollback)
+        id: current-revision
+        run: |
+          CURRENT_REVISION=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --format='value(status.latestReadyRevisionName)' || echo "none")
+          echo "current_revision=$CURRENT_REVISION" >> $GITHUB_OUTPUT
+          echo "Current revision: $CURRENT_REVISION"
+
+      - name: Deploy to Cloud Run (no traffic initially)
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/backend:${{ needs.build-and-push.outputs.image_tag }} \
+            --region=${{ env.GCP_REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --no-traffic \
+            --tag=candidate \
+            --quiet
+
+      - name: Get new revision name
+        id: new-revision
+        run: |
+          NEW_REVISION=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --format='value(status.latestCreatedRevisionName)')
+          echo "new_revision=$NEW_REVISION" >> $GITHUB_OUTPUT
+          echo "New revision: $NEW_REVISION"
+
+      - name: Get candidate URL
+        id: get-candidate-url
+        run: |
+          CANDIDATE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --format='value(status.traffic[0].url)' | grep 'candidate' || echo "")
+          if [ -z "$CANDIDATE_URL" ]; then
+            CANDIDATE_URL="https://candidate---${{ env.SERVICE_NAME }}-$(echo ${{ env.GCP_REGION }} | tr -d '-')-${{ env.GCP_PROJECT_ID }}.a.run.app"
+          fi
+          echo "CANDIDATE_URL=$CANDIDATE_URL" >> $GITHUB_OUTPUT
+          echo "Candidate URL: $CANDIDATE_URL"
+
+      - name: Wait for new revision to be ready
+        run: sleep 30
+
+      - name: Health check - Liveness (candidate)
+        id: health-liveness
+        run: |
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-candidate-url.outputs.CANDIDATE_URL }}/health/liveness)
+            if [ "$RESPONSE" = "200" ]; then
+              echo "✅ Liveness check passed"
+              exit 0
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Attempt $RETRY_COUNT/$MAX_RETRIES failed with status $RESPONSE, retrying..."
+            sleep 10
+          done
+
+          echo "❌ Liveness check failed after $MAX_RETRIES attempts"
+          exit 1
+
+      - name: Health check - Readiness (candidate)
+        id: health-readiness
+        run: |
+          MAX_RETRIES=5
+          RETRY_COUNT=0
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-candidate-url.outputs.CANDIDATE_URL }}/health/readiness)
+            if [ "$RESPONSE" = "200" ]; then
+              echo "✅ Readiness check passed"
+              exit 0
+            fi
+
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "Attempt $RETRY_COUNT/$MAX_RETRIES failed with status $RESPONSE, retrying..."
+            sleep 10
+          done
+
+          echo "❌ Readiness check failed after $MAX_RETRIES attempts"
+          exit 1
+
+      - name: Smoke test - API Documentation (candidate)
+        run: |
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-candidate-url.outputs.CANDIDATE_URL }}/api/docs)
+          if [ "$RESPONSE" != "200" ] && [ "$RESPONSE" != "301" ]; then
+            echo "❌ API docs check failed with status $RESPONSE"
+            exit 1
+          fi
+          echo "✅ API documentation accessible"
+
+      - name: Route 100% traffic to new revision
+        if: success()
+        run: |
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --to-revisions=${{ steps.new-revision.outputs.new_revision }}=100 \
+            --quiet
+
+      - name: Get production service URL
+        id: get-url
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --format='value(status.url)')
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "Production URL: $SERVICE_URL"
+
+      - name: Final health verification
+        run: |
+          sleep 15
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-url.outputs.SERVICE_URL }}/health/liveness)
+          if [ "$RESPONSE" != "200" ]; then
+            echo "❌ Final health check failed with status $RESPONSE"
+            exit 1
+          fi
+          echo "✅ Production deployment verified"
+
+      - name: Rollback on failure
+        if: failure() && steps.current-revision.outputs.current_revision != 'none'
+        run: |
+          echo "⚠️ Health checks failed, rolling back to previous revision"
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --to-revisions=${{ steps.current-revision.outputs.current_revision }}=100 \
+            --quiet
+
+          echo "❌ Deployment failed and rolled back to: ${{ steps.current-revision.outputs.current_revision }}"
+          exit 1
+
+      - name: Delete failed revision
+        if: failure() && steps.new-revision.outputs.new_revision != ''
+        run: |
+          gcloud run revisions delete ${{ steps.new-revision.outputs.new_revision }} \
+            --region=${{ env.GCP_REGION }} \
+            --quiet || true
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "✅ Production deployment successful!"
+          echo "Service URL: ${{ steps.get-url.outputs.SERVICE_URL }}"
+          echo "Image: ${{ env.REGISTRY }}/${{ env.GCP_PROJECT_ID }}/${{ env.REPOSITORY }}/backend:${{ needs.build-and-push.outputs.image_tag }}"
+          echo "Revision: ${{ steps.new-revision.outputs.new_revision }}"
+          echo "Region: ${{ env.GCP_REGION }}"
+          echo "Previous revision: ${{ steps.current-revision.outputs.current_revision }}"
+
+  notify:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always()
+    steps:
+      - name: Deployment success notification
+        if: needs.deploy.result == 'success'
+        run: |
+          echo "🚀 Production deployment completed successfully"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Actor: ${{ github.actor }}"
+
+      - name: Deployment failure notification
+        if: needs.deploy.result == 'failure'
+        run: |
+          echo "❌ Production deployment failed (rolled back)"
+          echo "Check the logs at: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          exit 1

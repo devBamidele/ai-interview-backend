@@ -68,8 +68,8 @@ export function getValidationSchema(): Joi.ObjectSchema {
   // Local development - most variables are optional (have defaults)
   const localSchema = Joi.object({
     ...baseSchema,
-    MONGODB_URI: Joi.string().uri().optional(),
-    REDIS_URL: Joi.string().uri().optional(),
+    MONGODB_URI: Joi.string().uri({ scheme: ['mongodb', 'mongodb+srv'] }).optional(),
+    REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).optional(),
     JWT_ACCESS_SECRET: Joi.string().min(32).optional(),
     JWT_REFRESH_SECRET: Joi.string().min(32).optional(),
     JWT_ACCESS_EXPIRATION: Joi.string().default('30m'),
@@ -89,8 +89,8 @@ export function getValidationSchema(): Joi.ObjectSchema {
   const stagingSchema = Joi.object({
     ...baseSchema,
     GCP_PROJECT_ID: Joi.string().required(),
-    MONGODB_URI: Joi.string().uri().required(),
-    REDIS_URL: Joi.string().uri().required(),
+    MONGODB_URI: Joi.string().uri({ scheme: ['mongodb', 'mongodb+srv'] }).required(),
+    REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).required(),
     JWT_ACCESS_SECRET: Joi.string().min(64).required(),
     JWT_REFRESH_SECRET: Joi.string().min(64).required(),
     JWT_ACCESS_EXPIRATION: Joi.string().default('30m'),
@@ -165,6 +165,9 @@ export function getAllowedOrigins(): string[] {
   }
 
   // Default origins per environment
+  // Note: Mobile apps bypass CORS, but we still restrict browser access for security.
+  // For mobile-only API, we use an empty array to block all browser-based requests.
+  // Mobile apps will work fine as they don't send Origin headers that trigger CORS.
   const defaultOrigins: Record<Environment, string[]> = {
     local: [
       'http://localhost:3000',
@@ -172,8 +175,8 @@ export function getAllowedOrigins(): string[] {
       'http://localhost:5174',
       'http://localhost:4200',
     ],
-    staging: ['https://staging.yourdomain.com'], // Update with your staging domain
-    production: ['https://app.yourdomain.com'], // Update with your production domain
+    staging: [], // Block browser requests - mobile app only, add web domains when needed
+    production: [], // Block browser requests - mobile app only, add web domains when needed
   };
 
   return defaultOrigins[environment];
