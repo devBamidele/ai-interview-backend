@@ -106,6 +106,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      security-events: write
 
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
@@ -151,7 +152,7 @@ jobs:
           exit-code: '1'
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
@@ -237,7 +238,7 @@ jobs:
           RETRY_COUNT=0
 
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-candidate-url.outputs.CANDIDATE_URL }}/health/liveness)
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.get-candidate-url.outputs.CANDIDATE_URL }}/api/health/liveness")
             if [ "$RESPONSE" = "200" ]; then
               echo "✅ Liveness check passed"
               exit 0
@@ -258,7 +259,7 @@ jobs:
           RETRY_COUNT=0
 
           while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-candidate-url.outputs.CANDIDATE_URL }}/health/readiness)
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.get-candidate-url.outputs.CANDIDATE_URL }}/api/health/readiness")
             if [ "$RESPONSE" = "200" ]; then
               echo "✅ Readiness check passed"
               exit 0
@@ -274,7 +275,7 @@ jobs:
 
       - name: Smoke test - API Documentation (candidate)
         run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-candidate-url.outputs.CANDIDATE_URL }}/api/docs)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.get-candidate-url.outputs.CANDIDATE_URL }}/api/docs")
           if [ "$RESPONSE" != "200" ] && [ "$RESPONSE" != "301" ]; then
             echo "❌ API docs check failed with status $RESPONSE"
             exit 1
@@ -301,7 +302,7 @@ jobs:
       - name: Final health verification
         run: |
           sleep 15
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-url.outputs.SERVICE_URL }}/health/liveness)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.get-url.outputs.SERVICE_URL }}/api/health/liveness")
           if [ "$RESPONSE" != "200" ]; then
             echo "❌ Final health check failed with status $RESPONSE"
             exit 1
