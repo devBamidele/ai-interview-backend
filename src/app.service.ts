@@ -7,6 +7,6 @@ export class AppService {
   }
 
   getMessage(): string {
-    return 'Testing automated deployment pipeline, Hello from NestJS!';
+    return 'Testing automated deployment pipeline';
   }
 }
