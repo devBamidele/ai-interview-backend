@@ -155,7 +155,7 @@ jobs:
 
       - name: Health check - Liveness
         run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-url.outputs.SERVICE_URL }}/health/liveness)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.get-url.outputs.SERVICE_URL }}/health/liveness")
           if [ "$RESPONSE" != "200" ]; then
             echo "Liveness check failed with status $RESPONSE"
             exit 1
@@ -164,7 +164,7 @@ jobs:
 
       - name: Health check - Readiness
         run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-url.outputs.SERVICE_URL }}/health/readiness)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.get-url.outputs.SERVICE_URL }}/health/readiness")
           if [ "$RESPONSE" != "200" ]; then
             echo "Readiness check failed with status $RESPONSE"
             exit 1
@@ -173,7 +173,7 @@ jobs:
 
       - name: Smoke test - API Documentation
         run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-url.outputs.SERVICE_URL }}/api/docs)
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.get-url.outputs.SERVICE_URL }}/api/docs")
           if [ "$RESPONSE" != "200" ] && [ "$RESPONSE" != "301" ]; then
             echo "API docs check failed with status $RESPONSE"
             exit 1
