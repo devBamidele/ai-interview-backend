@@ -61,3 +61,8 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Removed documentation files
+PHASE*.md
+DEPLOYMENT-*.md
+GITHUB-ACTIONS-SETUP.md
