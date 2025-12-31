@@ -7,6 +7,6 @@ export class AppService {
   }
 
   getMessage(): string {
-    return 'Testing automated deployment pipeline';
+    return 'Testing production automated deployment pipeline';
   }
 }
