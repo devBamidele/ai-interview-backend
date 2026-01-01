@@ -7,6 +7,6 @@ export class AppService {
   }
 
   getMessage(): string {
-    return 'Testing production automated deployment pipeline';
+    return 'Updated the Transcription Service Url ✨';
   }
 }
