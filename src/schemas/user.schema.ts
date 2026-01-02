@@ -8,6 +8,10 @@ export enum UserType {
   ANONYMOUS = 'anonymous',
 }
 
+export interface UserMetadata {
+  hasGrantedInterviewConsent?: boolean;
+}
+
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: false, sparse: true })
@@ -33,6 +37,12 @@ export class User {
 
   @Prop()
   upgradedAt?: Date;
+
+  @Prop({
+    type: Object,
+    default: { hasGrantedInterviewConsent: false },
+  })
+  metadata?: UserMetadata;
 
   createdAt?: Date;
   updatedAt?: Date;

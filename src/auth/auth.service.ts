@@ -19,6 +19,7 @@ import {
   LoginDto,
   RefreshTokenDto,
   UpgradeAccountDto,
+  UserResponse,
 } from '../common/dto/auth.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { StringValue } from 'ms';
@@ -66,6 +67,7 @@ export class AuthService {
       password: hashedPassword,
       userType: UserType.AUTHENTICATED,
       lastLoginAt: new Date(),
+      metadata: { hasGrantedInterviewConsent: false },
     });
 
     this.logger.log(`User created successfully: ${String(user._id)}`);
@@ -79,6 +81,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         userType: user.userType,
+        createdAt: user.createdAt,
+        metadata: user.metadata || { hasGrantedInterviewConsent: false },
       },
     };
   }
@@ -120,6 +124,8 @@ export class AuthService {
         email: user.email,
         name: user.name,
         userType: user.userType,
+        createdAt: user.createdAt,
+        metadata: user.metadata || { hasGrantedInterviewConsent: false },
       },
     };
   }
@@ -188,6 +194,7 @@ export class AuthService {
         name: `Guest-${deviceId.substring(0, 8)}`,
         email: `${deviceId}@anonymous.local`,
         lastLoginAt: new Date(),
+        metadata: { hasGrantedInterviewConsent: false },
       });
 
       this.logger.log(
@@ -211,6 +218,8 @@ export class AuthService {
         participantIdentity: user.participantIdentity,
         name: user.name,
         userType: user.userType,
+        createdAt: user.createdAt,
+        metadata: user.metadata || { hasGrantedInterviewConsent: false },
       },
     };
   }
@@ -266,7 +275,11 @@ export class AuthService {
         email: anonymousUser.email,
         name: anonymousUser.name,
         userType: anonymousUser.userType,
+        createdAt: anonymousUser.createdAt,
         upgradedAt: anonymousUser.upgradedAt,
+        metadata: anonymousUser.metadata || {
+          hasGrantedInterviewConsent: false,
+        },
       },
     };
   }
@@ -279,6 +292,37 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async updateMetadata(
+    userId: string,
+    metadata: { hasGrantedInterviewConsent: boolean },
+  ): Promise<UserResponse> {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updatedMetadata = {
+      ...user.metadata,
+      ...metadata,
+    };
+
+    user.metadata = updatedMetadata;
+    await user.save();
+
+    this.logger.log(`Metadata updated for user: ${userId}`);
+
+    return {
+      id: String(user._id),
+      email: user.email,
+      name: user.name,
+      participantIdentity: user.participantIdentity,
+      userType: user.userType,
+      createdAt: user.createdAt,
+      metadata: user.metadata,
+    };
   }
 
   private async generateTokenPair(user: UserDoc): Promise<TokenPair> {

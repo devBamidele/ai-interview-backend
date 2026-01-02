@@ -5,8 +5,12 @@ import {
   MinLength,
   Matches,
   IsOptional,
+  IsBoolean,
+  IsObject,
+  ValidateNested,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 
 export class SignupDto {
   @ApiProperty({ example: 'john.doe@example.com' })
@@ -101,4 +105,38 @@ export class AnonymousSessionDto {
     message: 'deviceId must be a valid UUID v4',
   })
   deviceId: string;
+}
+
+export class UserMetadataDto {
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether user has granted consent for interview recording/analysis',
+  })
+  @IsBoolean()
+  hasGrantedInterviewConsent: boolean;
+}
+
+export class UpdateMetadataDto {
+  @ApiProperty({
+    description: 'User metadata to update',
+    type: UserMetadataDto,
+  })
+  @IsObject()
+  @ValidateNested()
+  @Type(() => UserMetadataDto)
+  metadata: UserMetadataDto;
+}
+
+export interface UserResponse {
+  id: string;
+  email?: string;
+  name: string;
+  participantIdentity?: string;
+  userType: string;
+  createdAt?: Date;
+  upgradedAt?: Date;
+  metadata?: {
+    hasGrantedInterviewConsent?: boolean;
+  };
 }

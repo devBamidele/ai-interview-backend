@@ -1,8 +1,10 @@
-import { Controller, Post, Body, Param } from '@nestjs/common';
+import { Controller, Post, Body, Param, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { Public } from './decorators/public.decorator';
+import { CurrentUser } from './decorators/current-user.decorator';
+import type { UserDoc } from '../schemas/user.schema';
 import {
   SignupDto,
   LoginDto,
@@ -10,6 +12,7 @@ import {
   UpgradeAccountDto,
   LogoutDto,
   AnonymousSessionDto,
+  UpdateMetadataDto,
 } from '../common/dto/auth.dto';
 
 @ApiTags('auth')
@@ -63,5 +66,24 @@ export class AuthController {
     @Body() dto: UpgradeAccountDto,
   ) {
     return await this.authService.upgradeAccount(participantIdentity, dto);
+  }
+
+  @Patch('metadata')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update user metadata (consent tracking)' })
+  async updateMetadata(
+    @CurrentUser() user: UserDoc,
+    @Body() dto: UpdateMetadataDto,
+  ) {
+    const userId = String(user._id);
+    const updatedUser = await this.authService.updateMetadata(
+      userId,
+      dto.metadata,
+    );
+
+    return {
+      success: true,
+      user: updatedUser,
+    };
   }
 }

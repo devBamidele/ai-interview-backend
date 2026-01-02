@@ -68,8 +68,12 @@ export function getValidationSchema(): Joi.ObjectSchema {
   // Local development - most variables are optional (have defaults)
   const localSchema = Joi.object({
     ...baseSchema,
-    MONGODB_URI: Joi.string().uri({ scheme: ['mongodb', 'mongodb+srv'] }).optional(),
-    REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).optional(),
+    MONGODB_URI: Joi.string()
+      .uri({ scheme: ['mongodb', 'mongodb+srv'] })
+      .optional(),
+    REDIS_URL: Joi.string()
+      .uri({ scheme: ['redis', 'rediss'] })
+      .optional(),
     JWT_ACCESS_SECRET: Joi.string().min(32).optional(),
     JWT_REFRESH_SECRET: Joi.string().min(32).optional(),
     JWT_ACCESS_EXPIRATION: Joi.string().default('30m'),
@@ -89,8 +93,12 @@ export function getValidationSchema(): Joi.ObjectSchema {
   const stagingSchema = Joi.object({
     ...baseSchema,
     GCP_PROJECT_ID: Joi.string().required(),
-    MONGODB_URI: Joi.string().uri({ scheme: ['mongodb', 'mongodb+srv'] }).required(),
-    REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).required(),
+    MONGODB_URI: Joi.string()
+      .uri({ scheme: ['mongodb', 'mongodb+srv'] })
+      .required(),
+    REDIS_URL: Joi.string()
+      .uri({ scheme: ['redis', 'rediss'] })
+      .required(),
     JWT_ACCESS_SECRET: Joi.string().min(64).required(),
     JWT_REFRESH_SECRET: Joi.string().min(64).required(),
     JWT_ACCESS_EXPIRATION: Joi.string().default('30m'),

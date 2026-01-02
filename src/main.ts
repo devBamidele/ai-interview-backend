@@ -30,6 +30,7 @@ async function bootstrap() {
           defaultSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for Swagger
           scriptSrc: ["'self'", "'unsafe-inline'"], // Allow inline scripts for Swagger
+          scriptSrcAttr: ["'unsafe-inline'"], // Allow inline script attributes for Swagger
           imgSrc: ["'self'", 'data:', 'https:'],
         },
       },
