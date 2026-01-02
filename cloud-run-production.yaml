@@ -17,12 +17,12 @@ spec:
   template:
     metadata:
       annotations:
-        # Autoscaling
-        autoscaling.knative.dev/minScale: '1' # Keep 1 instance warm for faster response
+        # Autoscaling - optimized for cost efficiency in testing phase
+        autoscaling.knative.dev/minScale: '0' # Scale to zero when idle (saves ~$12/month)
         autoscaling.knative.dev/maxScale: '100' # Max 100 instances for high traffic
 
-        # CPU allocation - always allocate CPU (not just during requests)
-        run.googleapis.com/cpu-throttling: 'false'
+        # CPU allocation - only allocate during requests (saves ~$115/month)
+        run.googleapis.com/cpu-throttling: 'true'
 
         # Cloud SQL (if using Cloud SQL instead of Atlas)
         # run.googleapis.com/cloudsql-instances: PROJECT_ID:REGION:INSTANCE_NAME
@@ -50,11 +50,11 @@ spec:
             - name: http1
               containerPort: 8080
 
-          # Resource limits (higher for production)
+          # Resource limits - right-sized for NestJS + AI workload
           resources:
             limits:
-              cpu: '2' # 2 vCPUs for better performance
-              memory: 2Gi # 2 GB RAM for AI processing
+              cpu: '1' # 1 vCPU (reduced from 2, saves 50% on CPU costs)
+              memory: 512Mi # 512 MB RAM (reduced from 2Gi, adequate for most requests)
 
           # Environment variables
           env:

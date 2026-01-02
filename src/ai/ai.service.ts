@@ -35,27 +35,67 @@ export class AIService {
       `Starting MBB-aligned market sizing analysis for: ${caseQuestion}`,
     );
 
-    const prompt = this.buildMarketSizingPrompt(sessionData, caseQuestion);
+    // OpenAI GPT-5.2 has automatic prompt caching (50% discount on cached tokens)
+    // Static content (system message + evaluation criteria) is automatically cached
+    // when it's ≥1024 tokens and appears at the start of the prompt
+    const systemPrompt = this.buildCachedSystemPrompt();
+    const userPrompt = this.buildUserPrompt(sessionData, caseQuestion);
+
+    const startTime = Date.now();
 
     const response = await this.openai.chat.completions.create({
       model: 'gpt-5.2-chat-latest',
       messages: [
         {
           role: 'system',
-          content:
-            'You are an expert MBB (McKinsey, BCG, Bain) case interview evaluator specializing in market sizing questions. Evaluate based on ACTUAL MBB CRITERIA using a 5-point scale. Always return valid JSON.',
+          // Static content - automatically cached by OpenAI (50% discount after first use)
+          content: systemPrompt,
         },
         {
           role: 'user',
-          content: prompt,
+          // Dynamic content - full price, but much smaller than system prompt
+          content: userPrompt,
         },
       ],
       response_format: { type: 'json_object' },
     });
 
+    const duration = Date.now() - startTime;
+
     const content = response.choices[0].message.content;
     if (!content) {
       throw new InternalServerErrorException('Empty response from OpenAI');
+    }
+
+    // Log token usage for cost tracking
+    const usage = response.usage;
+    if (usage) {
+      const cachedTokens = usage.prompt_tokens_details?.cached_tokens || 0;
+      const uncachedPromptTokens = usage.prompt_tokens - cachedTokens;
+
+      // GPT-5.2-chat-latest pricing (Dec 2025)
+      const uncachedInputCost = (uncachedPromptTokens * 1.75) / 1_000_000;
+      const cachedInputCost = (cachedTokens * 0.875) / 1_000_000; // 50% discount
+      const outputCost = (usage.completion_tokens * 14.0) / 1_000_000;
+      const totalCost = uncachedInputCost + cachedInputCost + outputCost;
+
+      this.logger.log(
+        `OpenAI API call completed - ` +
+          `Model: ${response.model} | ` +
+          `Prompt: ${usage.prompt_tokens} tokens ` +
+          `(${cachedTokens} cached @ 50% off, ${uncachedPromptTokens} uncached) | ` +
+          `Completion: ${usage.completion_tokens} tokens | ` +
+          `Total: ${usage.total_tokens} tokens | ` +
+          `Cost: $${totalCost.toFixed(4)} | ` +
+          `Duration: ${duration}ms`,
+      );
+
+      if (cachedTokens > 0) {
+        const savedCost = (cachedTokens * 0.875) / 1_000_000; // 50% savings
+        this.logger.log(
+          `💰 Prompt cache hit! Saved $${savedCost.toFixed(4)} on this request`,
+        );
+      }
     }
 
     const analysis = JSON.parse(content) as MarketSizingAnalysisResult;
@@ -64,25 +104,16 @@ export class AIService {
     return this.validateAndFormatMarketSizingAnalysis(analysis);
   }
 
-  private buildMarketSizingPrompt(
-    sessionData: SessionData,
-    caseQuestion: string,
-  ): string {
+  /**
+   * Builds the cached system prompt containing evaluation criteria.
+   * This prompt is static and will be automatically cached by OpenAI,
+   * providing a 50% discount on these tokens after the first request.
+   */
+  private buildCachedSystemPrompt(): string {
     return `You are an expert MBB (McKinsey, BCG, Bain) case interview evaluator specializing in market sizing questions.
 
-Evaluate this candidate's market sizing performance based on ACTUAL MBB CRITERIA using a 5-point scale:
+Evaluate candidates' market sizing performance based on ACTUAL MBB CRITERIA using a 5-point scale:
 1 = Insufficient, 2 = Adequate, 3 = Good, 4 = Very Good, 5 = Outstanding
-
-CASE QUESTION: "${caseQuestion}"
-
-FULL TRANSCRIPT:
-${sessionData.transcript}
-
-SPEECH METRICS:
-- Average pace: ${sessionData.averagePace} WPM
-- Filler words: ${sessionData.fillers.length}
-- Long pauses: ${sessionData.pauses.length}
-- Duration: ${Math.round(sessionData.duration / 60)} minutes
 
 ---
 
@@ -171,6 +202,30 @@ RETURN VALID JSON with this EXACT structure:
     "<positive aspect 2>"
   ]
 }`;
+  }
+
+  /**
+   * Builds the dynamic user prompt with interview-specific data.
+   * This content changes per request and won't be cached.
+   */
+  private buildUserPrompt(
+    sessionData: SessionData,
+    caseQuestion: string,
+  ): string {
+    return `Evaluate this candidate's market sizing interview performance:
+
+CASE QUESTION: "${caseQuestion}"
+
+FULL TRANSCRIPT:
+${sessionData.transcript}
+
+SPEECH METRICS:
+- Average pace: ${sessionData.averagePace} WPM
+- Filler words: ${sessionData.fillers.length}
+- Long pauses: ${sessionData.pauses.length}
+- Duration: ${Math.round(sessionData.duration / 60)} minutes
+
+Please evaluate according to the MBB criteria provided in the system prompt and return the structured JSON response.`;
   }
 
   private validateAndFormatMarketSizingAnalysis(

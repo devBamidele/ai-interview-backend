@@ -50,11 +50,11 @@ spec:
             - name: http1
               containerPort: 8080
 
-          # Resource limits
+          # Resource limits - optimized for cost efficiency
           resources:
             limits:
               cpu: '1' # 1 vCPU
-              memory: 1Gi # 1 GB RAM
+              memory: 512Mi # 512 MB RAM (reduced from 1Gi for cost optimization)
 
           # Environment variables
           env:
