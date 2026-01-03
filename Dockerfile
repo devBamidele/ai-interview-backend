@@ -36,8 +36,8 @@ RUN npm run build
 # ============================================
 FROM node:20-alpine
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+# Install dumb-init for proper signal handling and CA certificates
+RUN apk add --no-cache dumb-init ca-certificates
 
 WORKDIR /app
 
